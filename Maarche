@@ -1,0 +1,52 @@
+import { useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+
+const luoghi = [
+  { nome: "Sentiero li Vurgacci", descrizione: "Percorso naturalistico con sculture nella roccia.", coordinate: [43.2032, 12.9961] },
+  { nome: "Lago Pilato", descrizione: "Lago glaciale nell'Appennino umbro-marchigiano.", coordinate: [42.8724, 13.2056] },
+  { nome: "Eremo di Monte Giove", descrizione: "Complesso religioso immerso nella natura.", coordinate: [43.7029, 13.2156] },
+  { nome: "Eremo del Valadier", descrizione: "Eremo incastonato nella roccia vicino Genga.", coordinate: [43.4172, 12.9932] },
+  { nome: "Gola dell’Infernaccio", descrizione: "Suggestiva gola con percorso escursionistico.", coordinate: [42.9564, 13.2355] },
+  { nome: "Gola del Furlo", descrizione: "Canyon naturale tra le montagne marchigiane.", coordinate: [43.6167, 12.7144] },
+  { nome: "Balza Forata", descrizione: "Arco naturale nella roccia.", coordinate: [43.3766, 13.1723] },
+  { nome: "Monte Strega", descrizione: "Montagna panoramica nella zona di Sassoferrato.", coordinate: [43.4494, 12.8404] },
+  { nome: "Monte Conero", descrizione: "Promontorio a picco sul mare Adriatico.", coordinate: [43.5285, 13.6032] },
+  // Altri luoghi possono essere aggiunti qui con latitudine e longitudine corrette
+];
+
+export default function MarcheExplorer() {
+  const [luogoSelezionato, setLuogoSelezionato] = useState(null);
+
+  return (
+    <div className="p-4 space-y-4">
+      <h1 className="text-3xl font-bold text-center">Esplora le Marche</h1>
+
+      <div className="h-[500px] rounded-xl overflow-hidden shadow">
+        <MapContainer center={[43.3, 13.3]} zoom={8} style={{ height: "100%", width: "100%" }}>
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          {luoghi.map((luogo, index) => (
+            <Marker
+              key={index}
+              position={luogo.coordinate}
+              eventHandlers={{
+                click: () => {
+                  setLuogoSelezionato(luogo);
+                },
+              }}
+            >
+              <Popup>{luogo.nome}</Popup>
+            </Marker>
+          ))}
+        </MapContainer>
+      </div>
+
+      {luogoSelezionato && (
+        <div className="p-4 bg-white rounded-xl shadow">
+          <h2 className="text-2xl font-semibold">{luogoSelezionato.nome}</h2>
+          <p className="mt-2 text-gray-700">{luogoSelezionato.descrizione}</p>
+        </div>
+      )}
+    </div>
+  );
+}
