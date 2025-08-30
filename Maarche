@@ -1,52 +1,266 @@
-import { useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Team Stand-up Automator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Calm Harmony (Warm Neutrals with Muted Blue Accent) -->
+    <!-- Application Structure Plan: A dashboard-style SPA that interactively demonstrates the 4-step automation process. The user submits a daily update via a form. The app then visually simulates the AI processing and delivery, finally displaying a generated report. A dashboard with charts provides further analytical context. This structure was chosen to make the product's value tangible and engaging, rather than just describing it. -->
+    <!-- Visualization & Content Choices: 1. Daily Input (HTML Form): Goal=Collect, Interaction=Submit, Justification=Simulates core user action. 2. Automation Flow (HTML/CSS Diagram): Goal=Explain, Interaction=JS-driven animation on submit, Justification=Visually clarifies the product's process. 3. Generated Report (Dynamic Text Block): Goal=Inform, Interaction=JS updates content, Justification=Shows the end result. 4. Team Analytics (Chart.js Donuts/Bars): Goal=Analyze, Interaction=Static data display, Justification=Demonstrates long-term value. Library: Chart.js for Canvas charts. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        .step-icon {
+            transition: all 0.3s ease-in-out;
+        }
+        .step.processing .step-icon {
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+        .step.completed .step-icon {
+            background-color: #16a34a !important;
+            border-color: #15803d !important;
+        }
+        .step.completed .step-text {
+             font-weight: 600;
+             color: #16a34a;
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-800">
 
-const luoghi = [
-  { nome: "Sentiero li Vurgacci", descrizione: "Percorso naturalistico con sculture nella roccia.", coordinate: [43.2032, 12.9961] },
-  { nome: "Lago Pilato", descrizione: "Lago glaciale nell'Appennino umbro-marchigiano.", coordinate: [42.8724, 13.2056] },
-  { nome: "Eremo di Monte Giove", descrizione: "Complesso religioso immerso nella natura.", coordinate: [43.7029, 13.2156] },
-  { nome: "Eremo del Valadier", descrizione: "Eremo incastonato nella roccia vicino Genga.", coordinate: [43.4172, 12.9932] },
-  { nome: "Gola dell’Infernaccio", descrizione: "Suggestiva gola con percorso escursionistico.", coordinate: [42.9564, 13.2355] },
-  { nome: "Gola del Furlo", descrizione: "Canyon naturale tra le montagne marchigiane.", coordinate: [43.6167, 12.7144] },
-  { nome: "Balza Forata", descrizione: "Arco naturale nella roccia.", coordinate: [43.3766, 13.1723] },
-  { nome: "Monte Strega", descrizione: "Montagna panoramica nella zona di Sassoferrato.", coordinate: [43.4494, 12.8404] },
-  { nome: "Monte Conero", descrizione: "Promontorio a picco sul mare Adriatico.", coordinate: [43.5285, 13.6032] },
-  // Altri luoghi possono essere aggiunti qui con latitudine e longitudine corrette
-];
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-stone-900">AI Team Stand-up Automator</h1>
+            <p class="mt-2 text-lg text-stone-600">Inserisci il tuo aggiornamento giornaliero e osserva la magia dell'automazione.</p>
+        </header>
 
-export default function MarcheExplorer() {
-  const [luogoSelezionato, setLuogoSelezionato] = useState(null);
+        <main class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <div class="space-y-8">
+                <div class="bg-white p-6 rounded-xl shadow-md border border-stone-200">
+                    <h2 class="text-2xl font-semibold mb-4 text-stone-800">✍️ Inserisci il tuo Aggiornamento</h2>
+                    <p class="text-stone-600 mb-6">Compila i campi sottostanti per generare il report del tuo stand-up.</p>
+                    <form id="standup-form" class="space-y-4">
+                        <div>
+                            <label for="yesterday" class="block text-sm font-medium text-stone-700">Cosa hai completato ieri?</label>
+                            <textarea id="yesterday" name="yesterday" rows="3" class="mt-1 block w-full rounded-md border-stone-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="Es: Ho finalizzato la feature di login..."></textarea>
+                        </div>
+                        <div>
+                            <label for="today" class="block text-sm font-medium text-stone-700">Quali sono i tuoi obiettivi per oggi?</label>
+                            <textarea id="today" name="today" rows="3" class="mt-1 block w-full rounded-md border-stone-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="Es: Inizierò a lavorare sull'integrazione del sistema di pagamento..."></textarea>
+                        </div>
+                        <div>
+                            <label for="blockers" class="block text-sm font-medium text-stone-700">Hai incontrato ostacoli?</label>
+                            <textarea id="blockers" name="blockers" rows="2" class="mt-1 block w-full rounded-md border-stone-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="Es: No / Sì, sto aspettando le nuove API dal team backend..."></textarea>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                            Genera Report Automatico
+                        </button>
+                    </form>
+                </div>
 
-  return (
-    <div className="p-4 space-y-4">
-      <h1 className="text-3xl font-bold text-center">Esplora le Marche</h1>
+                <div class="bg-white p-6 rounded-xl shadow-md border border-stone-200">
+                    <h2 class="text-2xl font-semibold mb-6 text-stone-800">⚙️ Come Funziona</h2>
+                    <div id="automation-flow" class="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0 sm:space-x-2">
+                        <!-- Step 1 -->
+                        <div id="step-1" class="step text-center w-full sm:w-1/4">
+                            <div class="step-icon mx-auto flex items-center justify-center w-16 h-16 bg-blue-500 text-white rounded-full border-4 border-blue-600 text-2xl">🤝</div>
+                            <p class="step-text mt-2 font-medium text-stone-700">Input Team</p>
+                        </div>
+                        <div class="w-1/4 h-1 bg-stone-200 hidden sm:block"></div>
+                        <!-- Step 2 -->
+                        <div id="step-2" class="step text-center w-full sm:w-1/4">
+                            <div class="step-icon mx-auto flex items-center justify-center w-16 h-16 bg-stone-400 text-white rounded-full border-4 border-stone-500 text-2xl">🧠</div>
+                            <p class="step-text mt-2 font-medium text-stone-700">Analisi AI</p>
+                        </div>
+                        <div class="w-1/4 h-1 bg-stone-200 hidden sm:block"></div>
+                        <!-- Step 3 -->
+                        <div id="step-3" class="step text-center w-full sm:w-1/4">
+                            <div class="step-icon mx-auto flex items-center justify-center w-16 h-16 bg-stone-400 text-white rounded-full border-4 border-stone-500 text-2xl">📋</div>
+                            <p class="step-text mt-2 font-medium text-stone-700">Report Veloce</p>
+                        </div>
+                        <div class="w-1/4 h-1 bg-stone-200 hidden sm:block"></div>
+                        <!-- Step 4 -->
+                        <div id="step-4" class="step text-center w-full sm:w-1/4">
+                            <div class="step-icon mx-auto flex items-center justify-center w-16 h-16 bg-stone-400 text-white rounded-full border-4 border-stone-500 text-2xl">📨</div>
+                            <p class="step-text mt-2 font-medium text-stone-700">Consegna</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-      <div className="h-[500px] rounded-xl overflow-hidden shadow">
-        <MapContainer center={[43.3, 13.3]} zoom={8} style={{ height: "100%", width: "100%" }}>
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          {luoghi.map((luogo, index) => (
-            <Marker
-              key={index}
-              position={luogo.coordinate}
-              eventHandlers={{
-                click: () => {
-                  setLuogoSelezionato(luogo);
-                },
-              }}
-            >
-              <Popup>{luogo.nome}</Popup>
-            </Marker>
-          ))}
-        </MapContainer>
-      </div>
+            <div class="space-y-8">
+                 <div class="bg-white p-6 rounded-xl shadow-md border border-stone-200 min-h-[300px]">
+                    <h2 class="text-2xl font-semibold mb-4 text-stone-800">📄 Report del Giorno</h2>
+                    <div id="report-output" class="text-stone-600 prose">
+                        <p class="italic">Il report generato apparirà qui dopo aver inviato il modulo.</p>
+                    </div>
+                </div>
 
-      {luogoSelezionato && (
-        <div className="p-4 bg-white rounded-xl shadow">
-          <h2 className="text-2xl font-semibold">{luogoSelezionato.nome}</h2>
-          <p className="mt-2 text-gray-700">{luogoSelezionato.descrizione}</p>
-        </div>
-      )}
+                <div class="bg-white p-6 rounded-xl shadow-md border border-stone-200">
+                    <h2 class="text-2xl font-semibold mb-4 text-stone-800">📊 Dashboard di Analisi</h2>
+                    <p class="text-stone-600 mb-6">Visualizza i trend del team nel tempo per identificare pattern e migliorare il flusso di lavoro.</p>
+                    <div class="chart-container">
+                        <canvas id="blockersChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </main>
     </div>
-  );
-}
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('standup-form');
+            const reportOutput = document.getElementById('report-output');
+            
+            const steps = {
+                1: document.getElementById('step-1'),
+                2: document.getElementById('step-2'),
+                3: document.getElementById('step-3'),
+                4: document.getElementById('step-4'),
+            };
+
+            const resetFlow = () => {
+                Object.values(steps).forEach((step, index) => {
+                    const icon = step.querySelector('.step-icon');
+                    step.classList.remove('processing', 'completed');
+                    icon.style.backgroundColor = index === 0 ? '#3b82f6' : '#a8a29e'; // blue for first, stone for others
+                    icon.style.borderColor = index === 0 ? '#2563eb' : '#78716c';
+                });
+            };
+            
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                resetFlow();
+                
+                const yesterday = document.getElementById('yesterday').value;
+                const today = document.getElementById('today').value;
+                const blockers = document.getElementById('blockers').value;
+
+                if (!yesterday || !today) {
+                    reportOutput.innerHTML = '<p class="text-red-500">Per favore, compila almeno i primi due campi.</p>';
+                    return;
+                }
+
+                reportOutput.innerHTML = '<p class="italic">Generazione del report in corso...</p>';
+                
+                const simulateProcessing = () => {
+                    let currentStep = 1;
+                    
+                    const processNextStep = () => {
+                        if (currentStep > 4) {
+                            displayReport();
+                            return;
+                        }
+
+                        if(currentStep > 1) {
+                           steps[currentStep-1].classList.remove('processing');
+                           steps[currentStep-1].classList.add('completed');
+                        }
+                        
+                        steps[currentStep].classList.add('processing');
+                        const icon = steps[currentStep].querySelector('.step-icon');
+                        icon.style.backgroundColor = '#3b82f6';
+                        icon.style.borderColor = '#2563eb';
+                        
+                        currentStep++;
+                        setTimeout(processNextStep, 800);
+                    };
+
+                    processNextStep();
+                };
+
+                const displayReport = () => {
+                    const hasBlockers = blockers && blockers.toLowerCase() !== 'no' && blockers.trim() !== '';
+
+                    const reportHTML = `
+                        <h3 class="font-semibold text-stone-800">Riepilogo Attività</h3>
+                        <ul class="list-disc pl-5 mt-2 space-y-1">
+                            <li><strong>Completato Ieri:</strong> ${yesterday}</li>
+                            <li><strong>Obiettivi per Oggi:</strong> ${today}</li>
+                        </ul>
+                        <h3 class="font-semibold text-stone-800 mt-4">Stato e Ostacoli</h3>
+                        <div class="flex items-center mt-2">
+                            ${hasBlockers 
+                                ? `<span class="mr-2 text-2xl">❗️</span> <p><strong class="text-amber-600">Ostacolo Rilevato:</strong> ${blockers}</p>` 
+                                : `<span class="mr-2 text-2xl">✅</span> <p><strong class="text-green-600">Nessun ostacolo</strong> segnalato.</p>`
+                            }
+                        </div>
+                    `;
+                    reportOutput.innerHTML = reportHTML;
+                };
+
+                simulateProcessing();
+            });
+
+            const ctx = document.getElementById('blockersChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Dipendenze Esterne', 'Requisiti non Chiari', 'Debito Tecnico', 'Attesa Revisione'],
+                    datasets: [{
+                        label: 'Ostacoli Comuni (Ultimi 30gg)',
+                        data: [12, 9, 7, 5],
+                        backgroundColor: [
+                            'rgba(239, 68, 68, 0.6)',
+                            'rgba(249, 115, 22, 0.6)',
+                            'rgba(234, 179, 8, 0.6)',
+                            'rgba(132, 204, 22, 0.6)',
+                        ],
+                        borderColor: [
+                            'rgba(239, 68, 68, 1)',
+                            'rgba(249, 115, 22, 1)',
+                            'rgba(234, 179, 8, 1)',
+                            'rgba(132, 204, 22, 1)',
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        title: {
+                            display: true,
+                            text: 'Tipologie di Ostacoli più Frequenti'
+                        }
+                    }
+                }
+            });
+            
+            resetFlow();
+        });
+    </script>
+</body>
+</html>
