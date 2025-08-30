@@ -6,13 +6,15 @@
     <title>AI Team Stand-up Automator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, addDoc, onSnapshot, collection, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, addDoc, onSnapshot, collection, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         
         setLogLevel('debug');
@@ -30,7 +32,7 @@
         window.saveReport = async function(yesterday, today, blockers) {
             const reportRef = getReportRef();
             if (!reportRef) {
-                console.error("Firestore not initialized.");
+                console.error("Firestore non inizializzato.");
                 return;
             }
             try {
@@ -40,9 +42,9 @@
                     blockers: blockers,
                     timestamp: serverTimestamp()
                 });
-                console.log("Document written with ID: ", docRef.id);
+                console.log("Documento scritto con ID: ", docRef.id);
             } catch (e) {
-                console.error("Error adding document: ", e);
+                console.error("Errore nell'aggiunta del documento: ", e);
             }
         }
 
@@ -55,25 +57,51 @@
             return collection(db, `artifacts/${appId}/users/${userId}/standup_reports`);
         }
 
+        // Allega un listener a Firestore per aggiornamenti in tempo reale
         function attachFirestoreListener() {
             const reportRef = getReportRef();
             if (!reportRef) {
-                console.error("User ID not set, cannot attach listener.");
+                console.error("ID utente non impostato, non è possibile collegare il listener.");
                 return;
             }
+            
+            // Ordina i report per data e limita a 5 per visualizzare la cronologia
+            const q = query(reportRef, orderBy('timestamp', 'desc'), limit(5));
 
-            onSnapshot(reportRef, (snapshot) => {
+            onSnapshot(q, (snapshot) => {
                 const reports = snapshot.docs.map(doc => doc.data());
                 updateChart(reports);
+                renderPastReports(snapshot.docs);
             }, (error) => {
-                console.error("Error listening to Firestore:", error);
+                console.error("Errore durante l'ascolto di Firestore:", error);
+            });
+        }
+        
+        // Renderizza la lista degli ultimi 5 report
+        function renderPastReports(docs) {
+            const pastReportsList = document.getElementById('past-reports');
+            if (!pastReportsList) return;
+            pastReportsList.innerHTML = ''; // Svuota la lista esistente
+
+            docs.forEach(doc => {
+                const report = doc.data();
+                const timestamp = report.timestamp ? new Date(report.timestamp.seconds * 1000) : new Date();
+                const formattedDate = timestamp.toLocaleDateString('it-IT', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                const hasBlockers = report.blockers && report.blockers.toLowerCase() !== 'no' && report.blockers.trim() !== '';
+
+                const li = document.createElement('li');
+                li.className = 'border-b border-stone-200 pb-4 last:border-b-0 last:pb-0 pt-4 first:pt-0';
+                li.innerHTML = `
+                    <p class="text-sm font-semibold text-stone-900">${formattedDate}</p>
+                    <p class="text-sm mt-1"><strong>Ieri:</strong> ${report.yesterday}</p>
+                    <p class="text-sm mt-1"><strong>Oggi:</strong> ${report.today}</p>
+                    <p class="text-sm mt-1"><strong>Ostacoli:</strong> ${hasBlockers ? report.blockers : 'Nessuno'}</p>
+                `;
+                pastReportsList.appendChild(li);
             });
         }
 
         function updateChart(reports) {
-            const totalReports = reports.length;
-            const reportsWithBlockers = reports.filter(r => r.blockers && r.blockers.toLowerCase() !== 'no' && r.blockers.trim() !== '').length;
-
             const blockersCount = {
                 'API': 0,
                 'Team': 0,
@@ -84,7 +112,7 @@
 
             reports.forEach(report => {
                 const blockersText = report.blockers ? report.blockers.toLowerCase() : '';
-                if (blockersText && blockersText !== 'no' && blockersText !== 'nessuno') {
+                if (blockersText && blockersText !== 'no' && blockersText !== 'nessuno' && blockersText.trim() !== '') {
                     if (blockersText.includes('api') || blockersText.includes('backend')) {
                         blockersCount['API']++;
                     } else if (blockersText.includes('team') || blockersText.includes('collaborazione')) {
@@ -150,11 +178,104 @@
             }
         }
         
+        async function generatePdf() {
+            const yesterday = document.getElementById('yesterday').value;
+            const today = document.getElementById('today').value;
+            const blockers = document.getElementById('blockers').value;
+            const aiSummaryText = document.getElementById('ai-summary-text').textContent;
+            
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF();
+            const margin = 20;
+            let y = margin;
+            const lineHeight = 10;
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const todayDate = new Date().toLocaleDateString('it-IT');
+
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(22);
+            pdf.text('Report Stand-up Giornaliero', pageWidth / 2, y, { align: 'center' });
+            y += lineHeight * 1.5;
+
+            pdf.setFontSize(12);
+            pdf.setFont('helvetica', 'normal');
+            pdf.text(`Data: ${todayDate}`, margin, y);
+            y += lineHeight;
+
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(16);
+            pdf.text('Riassunto AI', margin, y);
+            y += lineHeight;
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(12);
+            const splitSummary = pdf.splitTextToSize(aiSummaryText, pageWidth - margin * 2);
+            pdf.text(splitSummary, margin, y);
+            y += splitSummary.length * lineHeight + lineHeight;
+
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(16);
+            pdf.text('Dettagli Originali', margin, y);
+            y += lineHeight;
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(12);
+            
+            pdf.text('Ieri:', margin, y);
+            y += lineHeight;
+            const splitYesterday = pdf.splitTextToSize(yesterday, pageWidth - margin * 2);
+            pdf.text(splitYesterday, margin, y);
+            y += splitYesterday.length * lineHeight + lineHeight;
+
+            pdf.text('Oggi:', margin, y);
+            y += lineHeight;
+            const splitToday = pdf.splitTextToSize(today, pageWidth - margin * 2);
+            pdf.text(splitToday, margin, y);
+            y += splitToday.length * lineHeight + lineHeight;
+            
+            const hasBlockers = blockers && blockers.toLowerCase() !== 'no' && blockers.trim() !== '';
+            pdf.text('Ostacoli:', margin, y);
+            y += lineHeight;
+            const blockersText = hasBlockers ? blockers : 'Nessuno';
+            const splitBlockers = pdf.splitTextToSize(blockersText, pageWidth - margin * 2);
+            pdf.text(splitBlockers, margin, y);
+
+            pdf.save('report_standup.pdf');
+        }
+
+        async function getAiSummary(yesterday, today, blockers) {
+            const systemPrompt = "Sei un Project Manager esperto. Analizza i seguenti aggiornamenti di stand-up e fornisci un riassunto conciso, professionale e formattato in un singolo paragrafo. Evita i saluti e le conclusioni. Concentrati sulle attività chiave completate, gli obiettivi per oggi e gli eventuali ostacoli. Utilizza il pronome 'loro' o 'il team' per riferirti alla persona che ha scritto il report.";
+            const userQuery = `Ieri: ${yesterday}\nOggi: ${today}\nOstacoli: ${blockers}`;
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+            
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || "Nessun riassunto AI generato.";
+                return text;
+            } catch (e) {
+                console.error("Errore nella chiamata all'API Gemini:", e);
+                return "Errore nella generazione del riassunto AI.";
+            }
+        }
+
         // Logica principale dell'app, eseguita solo dopo l'autenticazione
         function initializeAppLogic() {
             const form = document.getElementById('standup-form');
             const reportOutput = document.getElementById('report-output');
-            const shareButtons = document.getElementById('share-buttons');
+            const newReportBtn = document.getElementById('new-report-btn');
             const userIdDisplay = document.getElementById('userIdDisplay');
             
             userIdDisplay.textContent = window.getUserId();
@@ -170,12 +291,12 @@
                 Object.values(steps).forEach((step, index) => {
                     const icon = step.querySelector('.step-icon');
                     step.classList.remove('processing', 'completed');
-                    icon.style.backgroundColor = index === 0 ? '#3b82f6' : '#a8a29e'; // blue for first, stone for others
+                    icon.style.backgroundColor = index === 0 ? '#3b82f6' : '#a8a29e';
                     icon.style.borderColor = index === 0 ? '#2563eb' : '#78716c';
                 });
             };
             
-            form.addEventListener('submit', (e) => {
+            form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 resetFlow();
                 
@@ -190,15 +311,15 @@
 
                 reportOutput.innerHTML = '<p class="italic">Generazione del report in corso...</p>';
                 
-                // Save the report to Firestore
                 window.saveReport(yesterday, today, blockers);
 
-                const simulateProcessing = () => {
+                const simulateProcessing = async () => {
                     let currentStep = 1;
                     
-                    const processNextStep = () => {
+                    const processNextStep = async () => {
                         if (currentStep > 4) {
-                            displayReport(yesterday, today, blockers);
+                            const aiSummary = await getAiSummary(yesterday, today, blockers);
+                            displayReport(yesterday, today, blockers, aiSummary);
                             return;
                         }
 
@@ -219,50 +340,55 @@
                     processNextStep();
                 };
 
-                const displayReport = (yesterday, today, blockers) => {
+                const displayReport = (yesterday, today, blockers, aiSummary) => {
                     const hasBlockers = blockers && blockers.toLowerCase() !== 'no' && blockers.trim() !== '';
 
-                    const reportText = `Riepilogo Attività:\n- Completato Ieri: ${yesterday}\n- Obiettivi per Oggi: ${today}\n- Ostacoli: ${hasBlockers ? blockers : 'Nessuno'}`;
-                    
                     const reportHTML = `
-                        <h3 class="font-semibold text-stone-800">Riepilogo Attività</h3>
-                        <ul class="list-disc pl-5 mt-2 space-y-1">
-                            <li><strong>Completato Ieri:</strong> ${yesterday}</li>
-                            <li><strong>Obiettivi per Oggi:</strong> ${today}</li>
-                        </ul>
-                        <h3 class="font-semibold text-stone-800 mt-4">Stato e Ostacoli</h3>
-                        <div class="flex items-center mt-2">
-                            ${hasBlockers 
-                                ? `<span class="mr-2 text-2xl">❗️</span> <p><strong class="text-amber-600">Ostacolo Rilevato:</strong> ${blockers}</p>` 
-                                : `<span class="mr-2 text-2xl">✅</span> <p><strong class="text-green-600">Nessun ostacolo</strong> segnalato.</p>`
-                            }
+                        <div id="report-pdf-content" class="p-4 bg-white rounded-lg shadow-inner">
+                            <h3 class="font-bold text-stone-800 text-xl mb-4">Report del Giorno</h3>
+                            <div class="mb-4">
+                                <h4 class="font-semibold text-stone-800 text-lg mb-2">Riassunto AI</h4>
+                                <p id="ai-summary-text" class="text-stone-700">${aiSummary}</p>
+                            </div>
+                            <div class="mb-4">
+                                <h4 class="font-semibold text-stone-800 text-lg mb-2">Dettagli Originali</h4>
+                                <ul class="list-disc list-inside space-y-1 text-stone-700">
+                                    <li><strong>Completato Ieri:</strong> ${yesterday}</li>
+                                    <li><strong>Obiettivi per Oggi:</strong> ${today}</li>
+                                </ul>
+                            </div>
+                            <div class="mt-4">
+                                <h4 class="font-semibold text-stone-800 text-lg mb-2">Stato e Ostacoli</h4>
+                                <div class="flex items-center">
+                                    ${hasBlockers 
+                                        ? `<span class="mr-2 text-2xl">❗️</span> <p class="text-stone-700"><strong class="text-amber-600">Ostacolo Rilevato:</strong> ${blockers}</p>` 
+                                        : `<span class="mr-2 text-2xl">✅</span> <p class="text-stone-700"><strong class="text-green-600">Nessun ostacolo</strong> segnalato.</p>`
+                                    }
+                                </div>
+                            </div>
                         </div>
                         <button id="share-report-btn" class="mt-6 w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
-                            Condividi Report
+                            Scarica Report PDF
                         </button>
                     `;
                     reportOutput.innerHTML = reportHTML;
                     
-                    document.getElementById('share-report-btn').addEventListener('click', () => {
-                        const encodedText = encodeURIComponent(reportText);
-                        const shareHTML = `
-                            <p class="text-sm text-stone-600 mb-2">Scegli come inviare il report:</p>
-                            <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                                <a href="mailto:?subject=Report%20Stand-up%20Giornaliero&body=${encodedText}" target="_blank" class="flex-1 text-center bg-gray-200 text-gray-800 p-2 rounded-lg hover:bg-gray-300">Email</a>
-                                <a href="https://wa.me/?text=${encodedText}" target="_blank" class="flex-1 text-center bg-green-500 text-white p-2 rounded-lg hover:bg-green-600">WhatsApp</a>
-                                <a href="https://t.me/share/url?url=&text=${encodedText}" target="_blank" class="flex-1 text-center bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600">Telegram</a>
-                            </div>
-                        `;
-                        shareButtons.innerHTML = shareHTML;
-                    });
+                    // Aggiunge l'evento per la generazione del PDF
+                    document.getElementById('share-report-btn').addEventListener('click', generatePdf);
                 };
 
                 simulateProcessing();
             });
+
+            newReportBtn.addEventListener('click', () => {
+                form.reset();
+                resetFlow();
+                document.getElementById('report-output').innerHTML = '<p class="italic">Il report generato apparirà qui dopo aver inviato il modulo.</p>';
+            });
+
             resetFlow();
         }
         
-        // Esegue la logica di inizializzazione dopo che l'utente è stato autenticato.
         (async () => {
             try {
                 if (typeof __initial_auth_token !== 'undefined') {
@@ -280,7 +406,7 @@
                 attachFirestoreListener();
                 initializeAppLogic();
             } catch (e) {
-                console.error("Authentication failed:", e);
+                console.error("Autenticazione fallita:", e);
             }
         })();
     </script>
@@ -314,6 +440,9 @@
                         </div>
                         <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                             Genera Report Automatico
+                        </button>
+                        <button type="button" id="new-report-btn" class="w-full bg-stone-200 text-stone-800 font-semibold py-3 px-4 rounded-lg hover:bg-stone-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-stone-400 transition-colors">
+                            Nuovo Report
                         </button>
                     </form>
                 </div>
@@ -354,7 +483,6 @@
                     <div id="report-output" class="text-stone-600 prose">
                         <p class="italic">Il report generato apparirà qui dopo aver inviato il modulo.</p>
                     </div>
-                    <div id="share-buttons" class="mt-4"></div>
                 </div>
 
                 <div class="bg-white p-6 rounded-xl shadow-md border border-stone-200">
@@ -363,6 +491,13 @@
                     <div class="chart-container">
                         <canvas id="blockersChart"></canvas>
                     </div>
+                </div>
+                
+                <div class="bg-white p-6 rounded-xl shadow-md border border-stone-200">
+                    <h2 class="text-2xl font-semibold mb-4 text-stone-800">📜 Report Precedenti</h2>
+                    <ul id="past-reports" class="list-none space-y-4 p-0">
+                        <p class="italic text-stone-500">I tuoi ultimi report appariranno qui automaticamente.</p>
+                    </ul>
                     <p class="text-sm mt-4 text-stone-600">ID Utente: <span id="userIdDisplay">Caricamento...</span></p>
                 </div>
             </div>
