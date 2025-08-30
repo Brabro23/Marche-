@@ -9,59 +9,281 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Chosen Palette: Calm Harmony (Warm Neutrals with Muted Blue Accent) -->
-    <!-- Application Structure Plan: A dashboard-style SPA that interactively demonstrates the 4-step automation process. The user submits a daily update via a form. The app then visually simulates the AI processing and delivery, finally displaying a generated report. A dashboard with charts provides further analytical context. This structure was chosen to make the product's value tangible and engaging, rather than just describing it. -->
-    <!-- Visualization & Content Choices: 1. Daily Input (HTML Form): Goal=Collect, Interaction=Submit, Justification=Simulates core user action. 2. Automation Flow (HTML/CSS Diagram): Goal=Explain, Interaction=JS-driven animation on submit, Justification=Visually clarifies the product's process. 3. Generated Report (Dynamic Text Block): Goal=Inform, Interaction=JS updates content, Justification=Shows the end result. 4. Team Analytics (Chart.js Donuts/Bars): Goal=Analyze, Interaction=Static data display, Justification=Demonstrates long-term value. Library: Chart.js for Canvas charts. -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-image: url(IMG_4532.jpeg);
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-            position: relative;
-        }
-        body::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(255, 255, 255, 0.7); /* White overlay for readability */
-            z-index: -1;
-        }
-        .chart-container {
-            position: relative;
-            width: 100%;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-            height: 300px;
-            max-height: 400px;
-        }
-        @media (min-width: 768px) {
-            .chart-container {
-                height: 350px;
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, onSnapshot, collection, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        
+        setLogLevel('debug');
+
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let userId = null;
+        let chartInstance = null;
+        
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        window.saveReport = async function(yesterday, today, blockers) {
+            const reportRef = getReportRef();
+            if (!reportRef) {
+                console.error("Firestore not initialized.");
+                return;
+            }
+            try {
+                const docRef = await addDoc(reportRef, {
+                    yesterday: yesterday,
+                    today: today,
+                    blockers: blockers,
+                    timestamp: serverTimestamp()
+                });
+                console.log("Document written with ID: ", docRef.id);
+            } catch (e) {
+                console.error("Error adding document: ", e);
             }
         }
-        .step-icon {
-            transition: all 0.3s ease-in-out;
+
+        window.getUserId = () => userId;
+
+        function getReportRef() {
+            if (!userId) {
+                return null;
+            }
+            return collection(db, `artifacts/${appId}/users/${userId}/standup_reports`);
         }
-        .step.processing .step-icon {
-            transform: scale(1.1);
-            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+
+        function attachFirestoreListener() {
+            const reportRef = getReportRef();
+            if (!reportRef) {
+                console.error("User ID not set, cannot attach listener.");
+                return;
+            }
+
+            onSnapshot(reportRef, (snapshot) => {
+                const reports = snapshot.docs.map(doc => doc.data());
+                updateChart(reports);
+            }, (error) => {
+                console.error("Error listening to Firestore:", error);
+            });
         }
-        .step.completed .step-icon {
-            background-color: #16a34a !important;
-            border-color: #15803d !important;
+
+        function updateChart(reports) {
+            const totalReports = reports.length;
+            const reportsWithBlockers = reports.filter(r => r.blockers && r.blockers.toLowerCase() !== 'no' && r.blockers.trim() !== '').length;
+
+            const blockersCount = {
+                'API': 0,
+                'Team': 0,
+                'Requisiti': 0,
+                'Bug': 0,
+                'Altro': 0
+            };
+
+            reports.forEach(report => {
+                const blockersText = report.blockers ? report.blockers.toLowerCase() : '';
+                if (blockersText && blockersText !== 'no' && blockersText !== 'nessuno') {
+                    if (blockersText.includes('api') || blockersText.includes('backend')) {
+                        blockersCount['API']++;
+                    } else if (blockersText.includes('team') || blockersText.includes('collaborazione')) {
+                        blockersCount['Team']++;
+                    } else if (blockersText.includes('requisiti') || blockersText.includes('specifiche')) {
+                        blockersCount['Requisiti']++;
+                    } else if (blockersText.includes('bug')) {
+                        blockersCount['Bug']++;
+                    } else {
+                        blockersCount['Altro']++;
+                    }
+                }
+            });
+
+            if (chartInstance) {
+                chartInstance.data.datasets[0].data = Object.values(blockersCount);
+                chartInstance.update();
+            } else {
+                const ctx = document.getElementById('blockersChart').getContext('2d');
+                chartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(blockersCount),
+                        datasets: [{
+                            label: 'Numero di Ostacoli',
+                            data: Object.values(blockersCount),
+                            backgroundColor: [
+                                'rgba(239, 68, 68, 0.6)',
+                                'rgba(249, 115, 22, 0.6)',
+                                'rgba(234, 179, 8, 0.6)',
+                                'rgba(132, 204, 22, 0.6)',
+                                'rgba(100, 116, 139, 0.6)'
+                            ],
+                            borderColor: [
+                                'rgba(239, 68, 68, 1)',
+                                'rgba(249, 115, 22, 1)',
+                                'rgba(234, 179, 8, 1)',
+                                'rgba(132, 204, 22, 1)',
+                                'rgba(100, 116, 139, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Tipi di Ostacoli Frequenti'
+                            }
+                        }
+                    }
+                });
+            }
         }
-        .step.completed .step-text {
-             font-weight: 600;
-             color: #16a34a;
+        
+        // Logica principale dell'app, eseguita solo dopo l'autenticazione
+        function initializeAppLogic() {
+            const form = document.getElementById('standup-form');
+            const reportOutput = document.getElementById('report-output');
+            const shareButtons = document.getElementById('share-buttons');
+            const userIdDisplay = document.getElementById('userIdDisplay');
+            
+            userIdDisplay.textContent = window.getUserId();
+
+            const steps = {
+                1: document.getElementById('step-1'),
+                2: document.getElementById('step-2'),
+                3: document.getElementById('step-3'),
+                4: document.getElementById('step-4'),
+            };
+
+            const resetFlow = () => {
+                Object.values(steps).forEach((step, index) => {
+                    const icon = step.querySelector('.step-icon');
+                    step.classList.remove('processing', 'completed');
+                    icon.style.backgroundColor = index === 0 ? '#3b82f6' : '#a8a29e'; // blue for first, stone for others
+                    icon.style.borderColor = index === 0 ? '#2563eb' : '#78716c';
+                });
+            };
+            
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                resetFlow();
+                
+                const yesterday = document.getElementById('yesterday').value;
+                const today = document.getElementById('today').value;
+                const blockers = document.getElementById('blockers').value;
+
+                if (!yesterday || !today) {
+                    reportOutput.innerHTML = '<p class="text-red-500">Per favore, compila almeno i primi due campi.</p>';
+                    return;
+                }
+
+                reportOutput.innerHTML = '<p class="italic">Generazione del report in corso...</p>';
+                
+                // Save the report to Firestore
+                window.saveReport(yesterday, today, blockers);
+
+                const simulateProcessing = () => {
+                    let currentStep = 1;
+                    
+                    const processNextStep = () => {
+                        if (currentStep > 4) {
+                            displayReport(yesterday, today, blockers);
+                            return;
+                        }
+
+                        if(currentStep > 1) {
+                           steps[currentStep-1].classList.remove('processing');
+                           steps[currentStep-1].classList.add('completed');
+                        }
+                        
+                        steps[currentStep].classList.add('processing');
+                        const icon = steps[currentStep].querySelector('.step-icon');
+                        icon.style.backgroundColor = '#3b82f6';
+                        icon.style.borderColor = '#2563eb';
+                        
+                        currentStep++;
+                        setTimeout(processNextStep, 800);
+                    };
+
+                    processNextStep();
+                };
+
+                const displayReport = (yesterday, today, blockers) => {
+                    const hasBlockers = blockers && blockers.toLowerCase() !== 'no' && blockers.trim() !== '';
+
+                    const reportText = `Riepilogo Attività:\n- Completato Ieri: ${yesterday}\n- Obiettivi per Oggi: ${today}\n- Ostacoli: ${hasBlockers ? blockers : 'Nessuno'}`;
+                    
+                    const reportHTML = `
+                        <h3 class="font-semibold text-stone-800">Riepilogo Attività</h3>
+                        <ul class="list-disc pl-5 mt-2 space-y-1">
+                            <li><strong>Completato Ieri:</strong> ${yesterday}</li>
+                            <li><strong>Obiettivi per Oggi:</strong> ${today}</li>
+                        </ul>
+                        <h3 class="font-semibold text-stone-800 mt-4">Stato e Ostacoli</h3>
+                        <div class="flex items-center mt-2">
+                            ${hasBlockers 
+                                ? `<span class="mr-2 text-2xl">❗️</span> <p><strong class="text-amber-600">Ostacolo Rilevato:</strong> ${blockers}</p>` 
+                                : `<span class="mr-2 text-2xl">✅</span> <p><strong class="text-green-600">Nessun ostacolo</strong> segnalato.</p>`
+                            }
+                        </div>
+                        <button id="share-report-btn" class="mt-6 w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                            Condividi Report
+                        </button>
+                    `;
+                    reportOutput.innerHTML = reportHTML;
+                    
+                    document.getElementById('share-report-btn').addEventListener('click', () => {
+                        const encodedText = encodeURIComponent(reportText);
+                        const shareHTML = `
+                            <p class="text-sm text-stone-600 mb-2">Scegli come inviare il report:</p>
+                            <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                                <a href="mailto:?subject=Report%20Stand-up%20Giornaliero&body=${encodedText}" target="_blank" class="flex-1 text-center bg-gray-200 text-gray-800 p-2 rounded-lg hover:bg-gray-300">Email</a>
+                                <a href="https://wa.me/?text=${encodedText}" target="_blank" class="flex-1 text-center bg-green-500 text-white p-2 rounded-lg hover:bg-green-600">WhatsApp</a>
+                                <a href="https://t.me/share/url?url=&text=${encodedText}" target="_blank" class="flex-1 text-center bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600">Telegram</a>
+                            </div>
+                        `;
+                        shareButtons.innerHTML = shareHTML;
+                    });
+                };
+
+                simulateProcessing();
+            });
+            resetFlow();
         }
-    </style>
+        
+        // Esegue la logica di inizializzazione dopo che l'utente è stato autenticato.
+        (async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                const user = auth.currentUser;
+                if (user) {
+                    userId = user.uid;
+                } else {
+                    userId = crypto.randomUUID();
+                }
+                console.log(`User authenticated with ID: ${userId}`);
+                attachFirestoreListener();
+                initializeAppLogic();
+            } catch (e) {
+                console.error("Authentication failed:", e);
+            }
+        })();
+    </script>
 </head>
 <body class="bg-stone-50 text-stone-800">
 
@@ -132,6 +354,7 @@
                     <div id="report-output" class="text-stone-600 prose">
                         <p class="italic">Il report generato apparirà qui dopo aver inviato il modulo.</p>
                     </div>
+                    <div id="share-buttons" class="mt-4"></div>
                 </div>
 
                 <div class="bg-white p-6 rounded-xl shadow-md border border-stone-200">
@@ -140,142 +363,11 @@
                     <div class="chart-container">
                         <canvas id="blockersChart"></canvas>
                     </div>
+                    <p class="text-sm mt-4 text-stone-600">ID Utente: <span id="userIdDisplay">Caricamento...</span></p>
                 </div>
             </div>
 
         </main>
     </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const form = document.getElementById('standup-form');
-            const reportOutput = document.getElementById('report-output');
-            
-            const steps = {
-                1: document.getElementById('step-1'),
-                2: document.getElementById('step-2'),
-                3: document.getElementById('step-3'),
-                4: document.getElementById('step-4'),
-            };
-
-            const resetFlow = () => {
-                Object.values(steps).forEach((step, index) => {
-                    const icon = step.querySelector('.step-icon');
-                    step.classList.remove('processing', 'completed');
-                    icon.style.backgroundColor = index === 0 ? '#3b82f6' : '#a8a29e'; // blue for first, stone for others
-                    icon.style.borderColor = index === 0 ? '#2563eb' : '#78716c';
-                });
-            };
-            
-            form.addEventListener('submit', (e) => {
-                e.preventDefault();
-                resetFlow();
-                
-                const yesterday = document.getElementById('yesterday').value;
-                const today = document.getElementById('today').value;
-                const blockers = document.getElementById('blockers').value;
-
-                if (!yesterday || !today) {
-                    reportOutput.innerHTML = '<p class="text-red-500">Per favore, compila almeno i primi due campi.</p>';
-                    return;
-                }
-
-                reportOutput.innerHTML = '<p class="italic">Generazione del report in corso...</p>';
-                
-                const simulateProcessing = () => {
-                    let currentStep = 1;
-                    
-                    const processNextStep = () => {
-                        if (currentStep > 4) {
-                            displayReport();
-                            return;
-                        }
-
-                        if(currentStep > 1) {
-                           steps[currentStep-1].classList.remove('processing');
-                           steps[currentStep-1].classList.add('completed');
-                        }
-                        
-                        steps[currentStep].classList.add('processing');
-                        const icon = steps[currentStep].querySelector('.step-icon');
-                        icon.style.backgroundColor = '#3b82f6';
-                        icon.style.borderColor = '#2563eb';
-                        
-                        currentStep++;
-                        setTimeout(processNextStep, 800);
-                    };
-
-                    processNextStep();
-                };
-
-                const displayReport = () => {
-                    const hasBlockers = blockers && blockers.toLowerCase() !== 'no' && blockers.trim() !== '';
-
-                    const reportHTML = `
-                        <h3 class="font-semibold text-stone-800">Riepilogo Attività</h3>
-                        <ul class="list-disc pl-5 mt-2 space-y-1">
-                            <li><strong>Completato Ieri:</strong> ${yesterday}</li>
-                            <li><strong>Obiettivi per Oggi:</strong> ${today}</li>
-                        </ul>
-                        <h3 class="font-semibold text-stone-800 mt-4">Stato e Ostacoli</h3>
-                        <div class="flex items-center mt-2">
-                            ${hasBlockers 
-                                ? `<span class="mr-2 text-2xl">❗️</span> <p><strong class="text-amber-600">Ostacolo Rilevato:</strong> ${blockers}</p>` 
-                                : `<span class="mr-2 text-2xl">✅</span> <p><strong class="text-green-600">Nessun ostacolo</strong> segnalato.</p>`
-                            }
-                        </div>
-                    `;
-                    reportOutput.innerHTML = reportHTML;
-                };
-
-                simulateProcessing();
-            });
-
-            const ctx = document.getElementById('blockersChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['Dipendenze Esterne', 'Requisiti non Chiari', 'Debito Tecnico', 'Attesa Revisione'],
-                    datasets: [{
-                        label: 'Ostacoli Comuni (Ultimi 30gg)',
-                        data: [12, 9, 7, 5],
-                        backgroundColor: [
-                            'rgba(239, 68, 68, 0.6)',
-                            'rgba(249, 115, 22, 0.6)',
-                            'rgba(234, 179, 8, 0.6)',
-                            'rgba(132, 204, 22, 0.6)',
-                        ],
-                        borderColor: [
-                            'rgba(239, 68, 68, 1)',
-                            'rgba(249, 115, 22, 1)',
-                            'rgba(234, 179, 8, 1)',
-                            'rgba(132, 204, 22, 1)',
-                        ],
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        title: {
-                            display: true,
-                            text: 'Tipologie di Ostacoli più Frequenti'
-                        }
-                    }
-                }
-            });
-            
-            resetFlow();
-        });
-    </script>
 </body>
 </html>
