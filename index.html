@@ -204,7 +204,7 @@
 
             pdf.setFont('helvetica', 'bold');
             pdf.setFontSize(16);
-            pdf.text('Riassunto AI', margin, y);
+            pdf.text('Riepilogo del Lavoro', margin, y);
             y += lineHeight;
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(12);
@@ -214,26 +214,31 @@
 
             pdf.setFont('helvetica', 'bold');
             pdf.setFontSize(16);
-            pdf.text('Dettagli Originali', margin, y);
+            pdf.text('Ieri (Completato)', margin, y);
             y += lineHeight;
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(12);
-            
-            pdf.text('Ieri:', margin, y);
-            y += lineHeight;
             const splitYesterday = pdf.splitTextToSize(yesterday, pageWidth - margin * 2);
             pdf.text(splitYesterday, margin, y);
             y += splitYesterday.length * lineHeight + lineHeight;
 
-            pdf.text('Oggi:', margin, y);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(16);
+            pdf.text('Oggi (Da Fare)', margin, y);
             y += lineHeight;
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(12);
             const splitToday = pdf.splitTextToSize(today, pageWidth - margin * 2);
             pdf.text(splitToday, margin, y);
             y += splitToday.length * lineHeight + lineHeight;
             
             const hasBlockers = blockers && blockers.toLowerCase() !== 'no' && blockers.trim() !== '';
-            pdf.text('Ostacoli:', margin, y);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(16);
+            pdf.text('Ostacoli', margin, y);
             y += lineHeight;
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(12);
             const blockersText = hasBlockers ? blockers : 'Nessuno';
             const splitBlockers = pdf.splitTextToSize(blockersText, pageWidth - margin * 2);
             pdf.text(splitBlockers, margin, y);
@@ -277,6 +282,8 @@
             const reportOutput = document.getElementById('report-output');
             const newReportBtn = document.getElementById('new-report-btn');
             const userIdDisplay = document.getElementById('userIdDisplay');
+            const submitBtn = document.getElementById('submit-btn');
+            const newReportBtnDiv = document.getElementById('new-report-btn-div');
             
             userIdDisplay.textContent = window.getUserId();
 
@@ -298,7 +305,6 @@
             
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                resetFlow();
                 
                 const yesterday = document.getElementById('yesterday').value;
                 const today = document.getElementById('today').value;
@@ -308,82 +314,116 @@
                     reportOutput.innerHTML = '<p class="text-red-500">Per favore, compila almeno i primi due campi.</p>';
                     return;
                 }
-
-                reportOutput.innerHTML = '<p class="italic">Generazione del report in corso...</p>';
                 
-                window.saveReport(yesterday, today, blockers);
+                // Nascondi i pulsanti e mostra lo spinner
+                submitBtn.disabled = true;
+                submitBtn.classList.add('hidden');
+                newReportBtnDiv.classList.add('hidden');
+                reportOutput.innerHTML = `
+                    <div id="loading-spinner" class="flex flex-col items-center justify-center p-8">
+                        <svg class="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="mt-4 text-stone-600">Generazione del report in corso...</p>
+                    </div>
+                `;
+                
+                resetFlow();
+                let currentStep = 1;
+                
+                // Step 1: Input del team
+                steps[currentStep].classList.add('completed');
+                const icon1 = steps[currentStep].querySelector('.step-icon');
+                icon1.style.backgroundColor = '#3b82f6';
+                icon1.style.borderColor = '#2563eb';
+                currentStep++;
+                
+                try {
+                    // Step 2: Analisi AI (chiamata all'API)
+                    steps[currentStep].classList.add('processing');
+                    const icon2 = steps[currentStep].querySelector('.step-icon');
+                    icon2.style.backgroundColor = '#3b82f6';
+                    icon2.style.borderColor = '#2563eb';
 
-                const simulateProcessing = async () => {
-                    let currentStep = 1;
+                    const aiSummary = await getAiSummary(yesterday, today, blockers);
                     
-                    const processNextStep = async () => {
-                        if (currentStep > 4) {
-                            const aiSummary = await getAiSummary(yesterday, today, blockers);
-                            displayReport(yesterday, today, blockers, aiSummary);
-                            return;
-                        }
-
-                        if(currentStep > 1) {
-                           steps[currentStep-1].classList.remove('processing');
-                           steps[currentStep-1].classList.add('completed');
-                        }
-                        
-                        steps[currentStep].classList.add('processing');
-                        const icon = steps[currentStep].querySelector('.step-icon');
-                        icon.style.backgroundColor = '#3b82f6';
-                        icon.style.borderColor = '#2563eb';
-                        
-                        currentStep++;
-                        setTimeout(processNextStep, 800);
-                    };
-
-                    processNextStep();
-                };
-
-                const displayReport = (yesterday, today, blockers, aiSummary) => {
-                    const hasBlockers = blockers && blockers.toLowerCase() !== 'no' && blockers.trim() !== '';
-
-                    const reportHTML = `
-                        <div id="report-pdf-content" class="p-4 bg-white rounded-lg shadow-inner">
-                            <h3 class="font-bold text-stone-800 text-xl mb-4">Report del Giorno</h3>
-                            <div class="mb-4">
-                                <h4 class="font-semibold text-stone-800 text-lg mb-2">Riassunto AI</h4>
-                                <p id="ai-summary-text" class="text-stone-700">${aiSummary}</p>
-                            </div>
-                            <div class="mb-4">
-                                <h4 class="font-semibold text-stone-800 text-lg mb-2">Dettagli Originali</h4>
-                                <ul class="list-disc list-inside space-y-1 text-stone-700">
-                                    <li><strong>Completato Ieri:</strong> ${yesterday}</li>
-                                    <li><strong>Obiettivi per Oggi:</strong> ${today}</li>
-                                </ul>
-                            </div>
-                            <div class="mt-4">
-                                <h4 class="font-semibold text-stone-800 text-lg mb-2">Stato e Ostacoli</h4>
-                                <div class="flex items-center">
-                                    ${hasBlockers 
-                                        ? `<span class="mr-2 text-2xl">❗️</span> <p class="text-stone-700"><strong class="text-amber-600">Ostacolo Rilevato:</strong> ${blockers}</p>` 
-                                        : `<span class="mr-2 text-2xl">✅</span> <p class="text-stone-700"><strong class="text-green-600">Nessun ostacolo</strong> segnalato.</p>`
-                                    }
-                                </div>
-                            </div>
-                        </div>
-                        <button id="share-report-btn" class="mt-6 w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
-                            Scarica Report PDF
-                        </button>
-                    `;
-                    reportOutput.innerHTML = reportHTML;
+                    steps[currentStep].classList.remove('processing');
+                    steps[currentStep].classList.add('completed');
+                    currentStep++;
                     
-                    // Aggiunge l'evento per la generazione del PDF
-                    document.getElementById('share-report-btn').addEventListener('click', generatePdf);
-                };
+                    // Step 3: Report Veloce
+                    steps[currentStep].classList.add('completed');
+                    const icon3 = steps[currentStep].querySelector('.step-icon');
+                    icon3.style.backgroundColor = '#3b82f6';
+                    icon3.style.borderColor = '#2563eb';
+                    currentStep++;
 
-                simulateProcessing();
+                    // Step 4: Consegna
+                    steps[currentStep].classList.add('completed');
+                    const icon4 = steps[currentStep].querySelector('.step-icon');
+                    icon4.style.backgroundColor = '#3b82f6';
+                    icon4.style.borderColor = '#2563eb';
+
+                    displayReport(yesterday, today, blockers, aiSummary);
+                    
+                    // Salva il report in Firestore (non blocca l'UI)
+                    window.saveReport(yesterday, today, blockers);
+
+                } catch (e) {
+                    console.error("Si è verificato un errore durante la generazione del report:", e);
+                    reportOutput.innerHTML = `<p class="text-red-500">Si è verificato un errore nella generazione del report. Per favore, riprova.</p>`;
+                } finally {
+                    // Nascondi lo spinner e mostra di nuovo i pulsanti
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('hidden');
+                    newReportBtnDiv.classList.remove('hidden');
+                }
             });
 
+            const displayReport = (yesterday, today, blockers, aiSummary) => {
+                const hasBlockers = blockers && blockers.toLowerCase() !== 'no' && blockers.trim() !== '';
+
+                const reportHTML = `
+                    <div id="report-pdf-content" class="p-4 bg-white rounded-lg shadow-inner">
+                        <h3 class="font-bold text-stone-800 text-xl mb-4">Report del Giorno</h3>
+                        <div class="mb-4">
+                            <h4 class="font-semibold text-stone-800 text-lg mb-2">Riassunto AI</h4>
+                            <p id="ai-summary-text" class="text-stone-700">${aiSummary}</p>
+                        </div>
+                        <div class="mb-4">
+                            <h4 class="font-semibold text-stone-800 text-lg mb-2">Dettagli Originali</h4>
+                            <ul class="list-disc list-inside space-y-1 text-stone-700">
+                                <li><strong>Completato Ieri:</strong> ${yesterday}</li>
+                                <li><strong>Obiettivi per Oggi:</strong> ${today}</li>
+                            </ul>
+                        </div>
+                        <div class="mt-4">
+                            <h4 class="font-semibold text-stone-800 text-lg mb-2">Stato e Ostacoli</h4>
+                            <div class="flex items-center">
+                                ${hasBlockers 
+                                    ? `<span class="mr-2 text-2xl">❗️</span> <p class="text-stone-700"><strong class="text-amber-600">Ostacolo Rilevato:</strong> ${blockers}</p>` 
+                                    : `<span class="mr-2 text-2xl">✅</span> <p class="text-stone-700"><strong class="text-green-600">Nessun ostacolo</strong> segnalato.</p>`
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <button id="share-report-btn" class="mt-6 w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                        Scarica Report PDF
+                    </button>
+                `;
+                reportOutput.innerHTML = reportHTML;
+                
+                // Aggiunge l'evento per la generazione del PDF
+                document.getElementById('share-report-btn').addEventListener('click', generatePdf);
+            };
+            
             newReportBtn.addEventListener('click', () => {
                 form.reset();
                 resetFlow();
-                document.getElementById('report-output').innerHTML = '<p class="italic">Il report generato apparirà qui dopo aver inviato il modulo.</p>';
+                reportOutput.innerHTML = '<p class="italic">Il report generato apparirà qui dopo aver inviato il modulo.</p>';
+                submitBtn.classList.remove('hidden');
+                newReportBtnDiv.classList.remove('hidden');
             });
 
             resetFlow();
@@ -438,12 +478,14 @@
                             <label for="blockers" class="block text-sm font-medium text-stone-700">Hai incontrato ostacoli?</label>
                             <textarea id="blockers" name="blockers" rows="2" class="mt-1 block w-full rounded-md border-stone-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="Es: No / Sì, sto aspettando le nuove API dal team backend..."></textarea>
                         </div>
-                        <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        <button type="submit" id="submit-btn" class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                             Genera Report Automatico
                         </button>
-                        <button type="button" id="new-report-btn" class="w-full bg-stone-200 text-stone-800 font-semibold py-3 px-4 rounded-lg hover:bg-stone-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-stone-400 transition-colors">
-                            Nuovo Report
-                        </button>
+                        <div id="new-report-btn-div">
+                            <button type="button" id="new-report-btn" class="w-full bg-stone-200 text-stone-800 font-semibold py-3 px-4 rounded-lg hover:bg-stone-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-stone-400 transition-colors">
+                                Nuovo Report
+                            </button>
+                        </div>
                     </form>
                 </div>
 
