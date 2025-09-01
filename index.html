@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Team Stand-up Automator</title>
     <!-- 
-        Questo è un file HTML con codice JavaScript dinamico.
-        Per farlo funzionare correttamente su GitHub, devi attivare le GitHub Pages.
-        1. Vai al tuo repository su GitHub.
-        2. Clicca su "Settings".
-        3. Seleziona "Pages" dal menu a sinistra.
-        4. Scegli il branch "main" e la cartella "root" e salva.
-        L'applicazione sarà disponibile a un indirizzo come https://<tuo-nome-utente>.github.io/<nome-del-repository>/<nome-del-file>.html
+        This is an HTML file with dynamic JavaScript code.
+        To make it work correctly on GitHub, you need to enable GitHub Pages.
+        1. Go to your repository on GitHub.
+        2. Click on "Settings".
+        3. Select "Pages" from the left menu.
+        4. Choose the "main" branch and the "root" folder and save.
+        The application will be available at an address like https://<your-username>.github.io/<repository-name>/<file-name>.html
     -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -128,7 +128,7 @@
         window.saveReport = async function(reporterName, yesterday, today, blockers, assignedToEmail, assignedToName) {
             const reportRef = getReportRef();
             if (!reportRef) {
-                console.error("Firestore non inizializzato.");
+                console.error("Firestore not initialized.");
                 return;
             }
             try {
@@ -145,10 +145,10 @@
                     docData.assignedToName = assignedToName;
                 }
                 const docRef = await addDoc(reportRef, docData);
-                console.log("Documento scritto con ID: ", docRef.id);
+                console.log("Document written with ID: ", docRef.id);
                 return docRef.id;
             } catch (e) {
-                console.error("Errore nell'aggiunta del documento: ", e);
+                console.error("Error adding document: ", e);
                 return null;
             }
         }
@@ -180,7 +180,7 @@
                 populateTeamMembers('blocker-assignee-select');
                 renderTeamMembersList();
             } catch (e) {
-                console.error("Errore nel caricamento dei membri del team:", e);
+                console.error("Error loading team members:", e);
             }
         }
         
@@ -188,14 +188,14 @@
             const teamRef = getTeamRef();
             if (!teamRef) return;
             if (teamMembers.some(member => member.email === memberEmail)) {
-                console.log("Membro del team già esistente.");
+                console.log("Team member already exists.");
                 return;
             }
             try {
                 await addDoc(teamRef, { name: memberName, email: memberEmail });
                 await loadTeamMembers();
             } catch (e) {
-                console.error("Errore nell'aggiunta del membro del team:", e);
+                console.error("Error adding team member:", e);
             }
         }
 
@@ -206,7 +206,7 @@
                 await deleteDoc(doc(teamRef, memberId));
                 await loadTeamMembers();
             } catch (e) {
-                console.error("Errore nell'eliminazione del membro del team:", e);
+                console.error("Error deleting team member:", e);
             }
         }
         
@@ -216,7 +216,7 @@
             teamList.innerHTML = '';
             
             if (teamMembers.length === 0) {
-                teamList.innerHTML = '<p class="text-lightMuted text-sm italic">Nessun membro del team aggiunto.</p>';
+                teamList.innerHTML = '<p class="text-lightMuted text-sm italic">No team members added.</p>';
                 return;
             }
             
@@ -241,7 +241,7 @@
         function populateTeamMembers(selectId) {
             const selectElement = document.getElementById(selectId);
             if (!selectElement) return;
-            selectElement.innerHTML = '<option value="">Seleziona un membro del team</option>';
+            selectElement.innerHTML = '<option value="">Select a team member</option>';
             teamMembers.forEach(member => {
                 const option = document.createElement('option');
                 option.value = member.email;
@@ -253,7 +253,7 @@
         function attachFirestoreListener() {
             const reportRef = getReportRef();
             if (!reportRef) {
-                console.error("ID utente non impostato, non è possibile collegare il listener.");
+                console.error("User ID not set, cannot attach listener.");
                 return;
             }
             
@@ -264,7 +264,7 @@
                 updateChart(reports);
                 renderPastReports(snapshot.docs);
             }, (error) => {
-                console.error("Errore durante l'ascolto di Firestore:", error);
+                console.error("Error listening to Firestore:", error);
             });
         }
         
@@ -494,11 +494,11 @@
                 });
 
                 const result = await response.json();
-                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || "Nessun riassunto AI generato.";
+                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || "No AI summary generated.";
                 return text;
             } catch (e) {
-                console.error("Errore nella chiamata all'API Gemini:", e);
-                return "Errore nella generazione del riassunto AI.";
+                console.error("Error in Gemini API call:", e);
+                return "Error in generating AI summary.";
             }
         }
 
@@ -527,7 +527,7 @@
                 const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || "Neutro";
                 return text;
             } catch (e) {
-                console.error("Errore nella chiamata all'API Gemini per il sentiment:", e);
+                console.error("Error in Gemini API call for sentiment:", e);
                 return "Neutro";
             }
         }
@@ -542,7 +542,7 @@
                 document.body.removeChild(tempTextarea);
                 return true;
             } catch (e) {
-                console.error("Errore nella copia negli appunti:", e);
+                console.error("Error copying to clipboard:", e);
                 return false;
             }
         }
@@ -586,7 +586,7 @@
                 }
             });
 
-            // Event listener per il modulo di aggiunta membro del team
+            // Event listener for the team member addition form
             teamMemberForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const memberNameInput = document.getElementById('team-member-name-input');
@@ -601,7 +601,7 @@
                 }
             });
 
-            // Delegazione per l'eliminazione dei membri del team
+            // Delegation for deleting team members
             const teamMembersList = document.getElementById('team-members-list');
             if (teamMembersList) {
                 teamMembersList.addEventListener('click', (e) => {
@@ -612,7 +612,7 @@
                 });
             }
 
-            // Aggiungi un'attività alla lista
+            // Add a task to the list
             addYesterdayTaskBtn.addEventListener('click', () => {
                 const taskText = yesterdayInput.value.trim();
                 if (taskText) {
@@ -634,7 +634,7 @@
                 }
             });
 
-            // Delegazione per l'eliminazione delle attività
+            // Delegation for deleting tasks
             if (yesterdayList) {
                 yesterdayList.addEventListener('click', (e) => {
                     if (e.target.closest('.delete-task-btn')) {
@@ -758,8 +758,8 @@
                     displayReport(docId, myName, yesterdayText, today, blockers, aiSummary, sentiment, assignedToName, assignedToEmail);
 
                 } catch (e) {
-                    console.error("Si è verificato un errore durante la generazione del report:", e);
-                    reportOutput.innerHTML = `<p class="text-danger">Si è verificato un errore nella generazione del report. Per favore, riprova.</p>`;
+                    console.error("An error occurred while generating the report:", e);
+                    reportOutput.innerHTML = `<p class="text-danger">An error occurred while generating the report. Please try again.</p>`;
                 } finally {
                     submitBtn.disabled = false;
                     submitBtn.classList.remove('hidden');
@@ -889,14 +889,15 @@
                 await loadTeamMembers();
                 attachFirestoreListener();
                 
-                // Assicurati che il DOM sia completamente caricato prima di eseguire la logica dell'app
+                // CRITICAL FIX: The event listeners must be attached after the DOM is fully loaded.
+                // This ensures that all elements are available and ready to receive events.
                 document.addEventListener('DOMContentLoaded', initializeAppLogic);
 
             } catch (e) {
-                console.error("Autenticazione fallita:", e);
+                console.error("Authentication failed:", e);
                 const userIdDisplay = document.getElementById('user-id-display');
                 if (userIdDisplay) {
-                    userIdDisplay.textContent = 'Autenticazione fallita';
+                    userIdDisplay.textContent = 'Authentication failed';
                 }
             }
         })();
