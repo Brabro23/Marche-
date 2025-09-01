@@ -193,7 +193,7 @@
             }
             try {
                 await addDoc(teamRef, { name: memberName, email: memberEmail });
-                await loadTeamMembers(); // Ricarica l'elenco dopo l'aggiunta
+                await loadTeamMembers();
             } catch (e) {
                 console.error("Errore nell'aggiunta del membro del team:", e);
             }
@@ -204,7 +204,7 @@
             if (!teamRef) return;
             try {
                 await deleteDoc(doc(teamRef, memberId));
-                await loadTeamMembers(); // Ricarica l'elenco dopo l'eliminazione
+                await loadTeamMembers();
             } catch (e) {
                 console.error("Errore nell'eliminazione del membro del team:", e);
             }
@@ -557,22 +557,23 @@
         }
 
         function initializeAppLogic() {
-            const form = document.getElementById('standup-form');
             const teamMemberForm = document.getElementById('team-member-form');
-            const yesterdayList = document.getElementById('yesterday-list');
             const yesterdayInput = document.getElementById('yesterday-input');
+            const addYesterdayTaskBtn = document.getElementById('add-yesterday-task-btn');
+            const yesterdayList = document.getElementById('yesterday-list');
             const blockersTextarea = document.getElementById('blockers');
             const assigneeDiv = document.getElementById('blocker-assignee-div');
             const assigneeSelect = document.getElementById('blocker-assignee-select');
+            const form = document.getElementById('standup-form');
             const reportOutput = document.getElementById('report-output');
             const newReportBtn = document.getElementById('new-report-btn');
             const submitBtn = document.getElementById('submit-btn');
             const newReportBtnDiv = document.getElementById('new-report-btn-div');
             const userIdDisplay = document.getElementById('user-id-display');
             const notificationMessageDiv = document.getElementById('notification-sent-message');
-            
-            if(userIdDisplay) {
-                 userIdDisplay.textContent = userId;
+
+            if (userIdDisplay) {
+                userIdDisplay.textContent = userId;
             }
 
             // Show/hide assignee select based on blockers textarea content
@@ -584,7 +585,7 @@
                     assigneeSelect.value = "";
                 }
             });
-            
+
             // Event listener per il modulo di aggiunta membro del team
             teamMemberForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -612,7 +613,7 @@
             }
 
             // Aggiungi un'attività alla lista
-            document.getElementById('add-yesterday-task-btn').addEventListener('click', () => {
+            addYesterdayTaskBtn.addEventListener('click', () => {
                 const taskText = yesterdayInput.value.trim();
                 if (taskText) {
                     const li = document.createElement('li');
@@ -634,7 +635,7 @@
             });
 
             // Delegazione per l'eliminazione delle attività
-            if(yesterdayList) {
+            if (yesterdayList) {
                 yesterdayList.addEventListener('click', (e) => {
                     if (e.target.closest('.delete-task-btn')) {
                         e.target.closest('li').remove();
@@ -887,13 +888,15 @@
                 console.log(`User authenticated with ID: ${userId}`);
                 await loadTeamMembers();
                 attachFirestoreListener();
-                initializeAppLogic();
+                
+                // Assicurati che il DOM sia completamente caricato prima di eseguire la logica dell'app
+                document.addEventListener('DOMContentLoaded', initializeAppLogic);
+
             } catch (e) {
                 console.error("Autenticazione fallita:", e);
-                // Il codice non si blocca, l'app funzionerà ma senza funzionalità di database
                 const userIdDisplay = document.getElementById('user-id-display');
-                if(userIdDisplay) {
-                     userIdDisplay.textContent = 'Autenticazione fallita';
+                if (userIdDisplay) {
+                    userIdDisplay.textContent = 'Autenticazione fallita';
                 }
             }
         })();
