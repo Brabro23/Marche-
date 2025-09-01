@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Team Stand-up Automator</title>
+    <!-- 
+        Questo è un file HTML con codice JavaScript dinamico.
+        Per farlo funzionare correttamente su GitHub, devi attivare le GitHub Pages.
+        1. Vai al tuo repository su GitHub.
+        2. Clicca su "Settings".
+        3. Seleziona "Pages" dal menu a sinistra.
+        4. Scegli il branch "main" e la cartella "root" e salva.
+        L'applicazione sarà disponibile a un indirizzo come https://<tuo-nome-utente>.github.io/<nome-del-repository>/<nome-del-file>.html
+    -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -226,10 +235,6 @@
                     </button>
                 `;
                 teamList.appendChild(li);
-                li.querySelector('.delete-member-btn').addEventListener('click', (e) => {
-                    const memberId = e.currentTarget.dataset.id;
-                    deleteTeamMember(memberId);
-                });
             });
         }
 
@@ -277,8 +282,7 @@
                 const li = document.createElement('li');
                 li.className = 'border-b border-slate-700 pb-4 last:border-b-0 last:pb-0 pt-4 first:pt-0 animate-fadeIn';
                 li.innerHTML = `
-                    <p class="text-xs font-semibold text-lightMuted">ID Utente: <span class="text-lightText break-all">${report.userId || 'N/A'}</span></p>
-                    <p class="text-sm font-semibold text-lightText mt-1">Reporter: <span class="font-normal">${report.reporterName || 'Sconosciuto'}</span></p>
+                    <p class="text-xs font-semibold text-lightMuted">Reporter: <span class="font-normal">${report.reporterName || 'Sconosciuto'}</span></p>
                     <p class="text-sm font-semibold text-lightText mt-1">${formattedDate}</p>
                     <p class="text-sm mt-1 text-lightMuted"><strong>Completato:</strong> ${report.yesterday}</p>
                     <p class="text-sm mt-1 text-lightMuted"><strong>Obiettivi:</strong> ${report.today}</p>
@@ -392,7 +396,7 @@
             const lineHeight = 10;
             const todayDate = new Date().toLocaleDateString('it-IT');
 
-            // Intestazione del PDF
+            // PDF Header
             pdf.setFillColor(59, 130, 246);
             pdf.rect(0, 0, pageWidth, 25, 'F');
 
@@ -566,6 +570,7 @@
             const newReportBtnDiv = document.getElementById('new-report-btn-div');
             const userIdDisplay = document.getElementById('user-id-display');
             const notificationMessageDiv = document.getElementById('notification-sent-message');
+            
             if(userIdDisplay) {
                  userIdDisplay.textContent = userId;
             }
@@ -580,6 +585,7 @@
                 }
             });
             
+            // Event listener per il modulo di aggiunta membro del team
             teamMemberForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const memberNameInput = document.getElementById('team-member-name-input');
@@ -594,6 +600,18 @@
                 }
             });
 
+            // Delegazione per l'eliminazione dei membri del team
+            const teamMembersList = document.getElementById('team-members-list');
+            if (teamMembersList) {
+                teamMembersList.addEventListener('click', (e) => {
+                    if (e.target.closest('.delete-member-btn')) {
+                        const memberId = e.target.closest('.delete-member-btn').dataset.id;
+                        deleteTeamMember(memberId);
+                    }
+                });
+            }
+
+            // Aggiungi un'attività alla lista
             document.getElementById('add-yesterday-task-btn').addEventListener('click', () => {
                 const taskText = yesterdayInput.value.trim();
                 if (taskText) {
@@ -604,7 +622,7 @@
                             <input type="checkbox" class="task-checkbox mr-3">
                             <span>${taskText}</span>
                         </div>
-                        <button type="button" class="text-lightMuted hover:text-danger ml-2 transition-colors duration-200">
+                        <button type="button" class="text-lightMuted hover:text-danger ml-2 transition-colors duration-200 delete-task-btn">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 112 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" />
                             </svg>
@@ -612,13 +630,18 @@
                     `;
                     yesterdayList.appendChild(li);
                     yesterdayInput.value = '';
-
-                    li.querySelector('button').addEventListener('click', () => {
-                        li.remove();
-                    });
                 }
             });
-            
+
+            // Delegazione per l'eliminazione delle attività
+            if(yesterdayList) {
+                yesterdayList.addEventListener('click', (e) => {
+                    if (e.target.closest('.delete-task-btn')) {
+                        e.target.closest('li').remove();
+                    }
+                });
+            }
+
             const steps = {
                 1: document.getElementById('step-1'),
                 2: document.getElementById('step-2'),
