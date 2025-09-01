@@ -5,18 +5,104 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Team Stand-up Automator</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0f172a',
+                        darkCard: 'rgba(30, 41, 59, 0.5)',
+                        accent: '#3b82f6',
+                        lightText: '#e2e8f0',
+                        lightMuted: '#94a3b8',
+                        success: '#10b981',
+                        danger: '#ef4444',
+                        warning: '#f97316',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: 0, transform: 'translateY(10px)' },
+                            '100%': { opacity: 1, transform: 'translateY(0)' },
+                        },
+                        pulseBg: {
+                            '0%, 100%': { 'box-shadow': '0 0 0 0 rgba(59, 130, 246, 0.4)' },
+                            '50%': { 'box-shadow': '0 0 0 8px rgba(59, 130, 246, 0)' },
+                        },
+                        slideIn: {
+                            '0%': { transform: 'translateX(20px)', opacity: 0 },
+                            '100%': { transform: 'translateX(0)', opacity: 1 },
+                        },
+                    },
+                    animation: {
+                        fadeIn: 'fadeIn 0.5s ease-out forwards',
+                        pulseBg: 'pulseBg 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        slideIn: 'slideIn 0.3s ease-out forwards',
+                    }
+                }
+            }
+        }
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            backdrop-filter: blur(10px);
+            background-color: #0f172a;
+            background-size: cover;
+            background-position: center;
+        }
+        .prose strong {
+            color: #e2e8f0;
+        }
+        .card {
+            background-color: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(10px);
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px #3b82f6;
+        }
+        input[type="checkbox"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 1.25rem;
+            height: 1.25rem;
+            border: 2px solid #94a3b8;
+            background-color: transparent;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        input[type="checkbox"]:checked {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 0.8rem;
+        }
+        .icon {
+            width: 1.25rem;
+            height: 1.25rem;
+            margin-right: 0.5rem;
+            display: inline-block;
+        }
+    </style>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, addDoc, onSnapshot, collection, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, addDoc, onSnapshot, collection, query, orderBy, limit, serverTimestamp, updateDoc, getDocs, deleteDoc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        
+
         setLogLevel('debug');
 
         const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
@@ -26,38 +112,139 @@
 
         let userId = null;
         let chartInstance = null;
+        let teamMembers = [];
         
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        window.saveReport = async function(yesterday, today, blockers) {
+        window.saveReport = async function(reporterName, yesterday, today, blockers, assignedToEmail, assignedToName) {
             const reportRef = getReportRef();
             if (!reportRef) {
                 console.error("Firestore non inizializzato.");
                 return;
             }
             try {
-                const docRef = await addDoc(reportRef, {
+                const docData = {
+                    reporterName: reporterName,
                     yesterday: yesterday,
                     today: today,
                     blockers: blockers,
-                    timestamp: serverTimestamp()
-                });
+                    timestamp: serverTimestamp(),
+                    userId: userId
+                };
+                if (assignedToEmail && assignedToName) {
+                    docData.assignedToEmail = assignedToEmail;
+                    docData.assignedToName = assignedToName;
+                }
+                const docRef = await addDoc(reportRef, docData);
                 console.log("Documento scritto con ID: ", docRef.id);
+                return docRef.id;
             } catch (e) {
                 console.error("Errore nell'aggiunta del documento: ", e);
+                return null;
             }
         }
 
         window.getUserId = () => userId;
-
+        
+        // Firestore references
         function getReportRef() {
             if (!userId) {
                 return null;
             }
-            return collection(db, `artifacts/${appId}/users/${userId}/standup_reports`);
+            return collection(db, `artifacts/${appId}/public/data/standup_reports`);
+        }
+        
+        function getTeamRef() {
+            if (!userId) {
+                return null;
+            }
+            return collection(db, `artifacts/${appId}/users/${userId}/team_members`);
+        }
+        
+        // Team Members management
+        async function loadTeamMembers() {
+            const teamRef = getTeamRef();
+            if (!teamRef) return;
+            try {
+                const snapshot = await getDocs(teamRef);
+                teamMembers = snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name, email: doc.data().email }));
+                populateTeamMembers('blocker-assignee-select');
+                renderTeamMembersList();
+            } catch (e) {
+                console.error("Errore nel caricamento dei membri del team:", e);
+            }
+        }
+        
+        async function addTeamMember(memberName, memberEmail) {
+            const teamRef = getTeamRef();
+            if (!teamRef) return;
+            if (teamMembers.some(member => member.email === memberEmail)) {
+                console.log("Membro del team già esistente.");
+                return;
+            }
+            try {
+                await addDoc(teamRef, { name: memberName, email: memberEmail });
+                await loadTeamMembers(); // Ricarica l'elenco dopo l'aggiunta
+            } catch (e) {
+                console.error("Errore nell'aggiunta del membro del team:", e);
+            }
         }
 
-        // Allega un listener a Firestore per aggiornamenti in tempo reale
+        async function deleteTeamMember(memberId) {
+            const teamRef = getTeamRef();
+            if (!teamRef) return;
+            try {
+                await deleteDoc(doc(teamRef, memberId));
+                await loadTeamMembers(); // Ricarica l'elenco dopo l'eliminazione
+            } catch (e) {
+                console.error("Errore nell'eliminazione del membro del team:", e);
+            }
+        }
+        
+        function renderTeamMembersList() {
+            const teamList = document.getElementById('team-members-list');
+            if (!teamList) return;
+            teamList.innerHTML = '';
+            
+            if (teamMembers.length === 0) {
+                teamList.innerHTML = '<p class="text-lightMuted text-sm italic">Nessun membro del team aggiunto.</p>';
+                return;
+            }
+            
+            teamMembers.forEach(member => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between bg-slate-800 p-2 rounded-md transition-colors duration-200 hover:bg-slate-700';
+                li.innerHTML = `
+                    <div class="flex flex-col">
+                        <span class="text-lightText text-sm font-semibold">${member.name}</span>
+                        <span class="text-lightMuted text-xs">${member.email}</span>
+                    </div>
+                    <button data-id="${member.id}" class="delete-member-btn text-danger hover:text-red-700 transition-colors duration-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 112 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                `;
+                teamList.appendChild(li);
+                li.querySelector('.delete-member-btn').addEventListener('click', (e) => {
+                    const memberId = e.currentTarget.dataset.id;
+                    deleteTeamMember(memberId);
+                });
+            });
+        }
+
+        function populateTeamMembers(selectId) {
+            const selectElement = document.getElementById(selectId);
+            if (!selectElement) return;
+            selectElement.innerHTML = '<option value="">Seleziona un membro del team</option>';
+            teamMembers.forEach(member => {
+                const option = document.createElement('option');
+                option.value = member.email;
+                option.textContent = member.name;
+                selectElement.appendChild(option);
+            });
+        }
+
         function attachFirestoreListener() {
             const reportRef = getReportRef();
             if (!reportRef) {
@@ -65,11 +252,10 @@
                 return;
             }
             
-            // Ordina i report per data e limita a 5 per visualizzare la cronologia
             const q = query(reportRef, orderBy('timestamp', 'desc'), limit(5));
 
             onSnapshot(q, (snapshot) => {
-                const reports = snapshot.docs.map(doc => doc.data());
+                const reports = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 updateChart(reports);
                 renderPastReports(snapshot.docs);
             }, (error) => {
@@ -77,11 +263,10 @@
             });
         }
         
-        // Renderizza la lista degli ultimi 5 report
         function renderPastReports(docs) {
             const pastReportsList = document.getElementById('past-reports');
             if (!pastReportsList) return;
-            pastReportsList.innerHTML = ''; // Svuota la lista esistente
+            pastReportsList.innerHTML = '';
 
             docs.forEach(doc => {
                 const report = doc.data();
@@ -90,12 +275,17 @@
                 const hasBlockers = report.blockers && report.blockers.toLowerCase() !== 'no' && report.blockers.trim() !== '';
 
                 const li = document.createElement('li');
-                li.className = 'border-b border-stone-200 pb-4 last:border-b-0 last:pb-0 pt-4 first:pt-0';
+                li.className = 'border-b border-slate-700 pb-4 last:border-b-0 last:pb-0 pt-4 first:pt-0 animate-fadeIn';
                 li.innerHTML = `
-                    <p class="text-sm font-semibold text-stone-900">${formattedDate}</p>
-                    <p class="text-sm mt-1"><strong>Oggi:</strong> ${report.yesterday}</p>
-                    <p class="text-sm mt-1"><strong>Domani:</strong> ${report.today}</p>
-                    <p class="text-sm mt-1"><strong>Ostacoli:</strong> ${hasBlockers ? report.blockers : 'Nessuno'}</p>
+                    <p class="text-xs font-semibold text-lightMuted">ID Utente: <span class="text-lightText break-all">${report.userId || 'N/A'}</span></p>
+                    <p class="text-sm font-semibold text-lightText mt-1">Reporter: <span class="font-normal">${report.reporterName || 'Sconosciuto'}</span></p>
+                    <p class="text-sm font-semibold text-lightText mt-1">${formattedDate}</p>
+                    <p class="text-sm mt-1 text-lightMuted"><strong>Completato:</strong> ${report.yesterday}</p>
+                    <p class="text-sm mt-1 text-lightMuted"><strong>Obiettivi:</strong> ${report.today}</p>
+                    <p class="text-sm mt-1 text-lightMuted"><strong>Ostacoli:</strong> ${hasBlockers ? report.blockers : 'Nessuno'}</p>
+                    ${report.assignedToName ? `
+                        <p class="mt-2 text-sm text-lightMuted"><strong>Assegnato a:</strong> ${report.assignedToName}</p>
+                    ` : ''}
                 `;
                 pastReportsList.appendChild(li);
             });
@@ -127,11 +317,11 @@
                 }
             });
 
+            const ctx = document.getElementById('blockersChart').getContext('2d');
             if (chartInstance) {
                 chartInstance.data.datasets[0].data = Object.values(blockersCount);
                 chartInstance.update();
             } else {
-                const ctx = document.getElementById('blockersChart').getContext('2d');
                 chartInstance = new Chart(ctx, {
                     type: 'bar',
                     data: {
@@ -161,7 +351,13 @@
                         maintainAspectRatio: false,
                         scales: {
                             y: {
-                                beginAtZero: true
+                                beginAtZero: true,
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                            },
+                            x: {
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
                             }
                         },
                         plugins: {
@@ -170,78 +366,104 @@
                             },
                             title: {
                                 display: true,
-                                text: 'Tipi di Ostacoli Frequenti'
+                                text: 'Tipi di Ostacoli Frequenti',
+                                color: '#e2e8f0'
                             }
                         }
                     }
                 });
             }
         }
-        
+
         async function generatePdf() {
-            const yesterday = document.getElementById('yesterday').value;
-            const today = document.getElementById('today').value;
-            const blockers = document.getElementById('blockers').value;
-            const aiSummaryText = document.getElementById('ai-summary-text').textContent;
-            
+            const aiSummary = document.getElementById('ai-summary-text').textContent;
+            const yesterdayTasks = Array.from(document.querySelectorAll('#yesterday-list li input:checked + span')).map(span => span.textContent);
+            const yesterdayText = yesterdayTasks.length > 0 ? yesterdayTasks.join(', ') : 'Nessuna attività completata';
+            const todayText = document.getElementById('today').value;
+            const blockersText = document.getElementById('blockers').value;
+            const reporterName = document.getElementById('my-name-input').value;
+
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF();
             const margin = 20;
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
             let y = margin;
             const lineHeight = 10;
-            const pageWidth = pdf.internal.pageSize.getWidth();
             const todayDate = new Date().toLocaleDateString('it-IT');
 
-            pdf.setFont('helvetica', 'bold');
-            pdf.setFontSize(22);
-            pdf.text('Report Stand-up Giornaliero', pageWidth / 2, y, { align: 'center' });
-            y += lineHeight * 1.5;
-
-            pdf.setFontSize(12);
-            pdf.setFont('helvetica', 'normal');
-            pdf.text(`Data: ${todayDate}`, margin, y);
-            y += lineHeight;
+            // Intestazione del PDF
+            pdf.setFillColor(59, 130, 246);
+            pdf.rect(0, 0, pageWidth, 25, 'F');
 
             pdf.setFont('helvetica', 'bold');
-            pdf.setFontSize(16);
-            pdf.text('Riepilogo del Lavoro', margin, y);
+            pdf.setFontSize(18);
+            pdf.setTextColor(255, 255, 255);
+            pdf.text('Report Stand-up Giornaliero', margin, 17);
+
+            pdf.setFontSize(10);
+            pdf.setTextColor(255, 255, 255);
+            pdf.text(`Data: ${todayDate}`, pageWidth - margin, 17, { align: 'right' });
+
+            y = 40;
+            pdf.setTextColor(0, 0, 0);
+
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(14);
+            pdf.text('Riassunto AI', margin, y);
             y += lineHeight;
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(12);
-            const splitSummary = pdf.splitTextToSize(aiSummaryText, pageWidth - margin * 2);
+            const splitSummary = pdf.splitTextToSize(aiSummary, pageWidth - margin * 2);
             pdf.text(splitSummary, margin, y);
-            y += splitSummary.length * lineHeight + lineHeight;
+            y += (splitSummary.length * lineHeight) + lineHeight;
 
             pdf.setFont('helvetica', 'bold');
-            pdf.setFontSize(16);
-            pdf.text('Oggi (Completato)', margin, y);
+            pdf.setFontSize(14);
+            pdf.text('Attività Completate Oggi', margin, y);
             y += lineHeight;
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(12);
-            const splitYesterday = pdf.splitTextToSize(yesterday, pageWidth - margin * 2);
+            const splitYesterday = pdf.splitTextToSize(yesterdayText, pageWidth - margin * 2);
             pdf.text(splitYesterday, margin, y);
-            y += splitYesterday.length * lineHeight + lineHeight;
+            y += (splitYesterday.length * lineHeight) + lineHeight;
 
             pdf.setFont('helvetica', 'bold');
-            pdf.setFontSize(16);
-            pdf.text('Domani (Da Fare)', margin, y);
+            pdf.setFontSize(14);
+            pdf.text('Obiettivi per Domani', margin, y);
             y += lineHeight;
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(12);
-            const splitToday = pdf.splitTextToSize(today, pageWidth - margin * 2);
+            const splitToday = pdf.splitTextToSize(todayText, pageWidth - margin * 2);
             pdf.text(splitToday, margin, y);
-            y += splitToday.length * lineHeight + lineHeight;
-            
-            const hasBlockers = blockers && blockers.toLowerCase() !== 'no' && blockers.trim() !== '';
+            y += (splitToday.length * lineHeight) + lineHeight;
+
+            const hasBlockers = blockersText && blockersText.toLowerCase() !== 'no' && blockersText.trim() !== '';
             pdf.setFont('helvetica', 'bold');
-            pdf.setFontSize(16);
+            pdf.setFontSize(14);
             pdf.text('Ostacoli', margin, y);
             y += lineHeight;
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(12);
-            const blockersText = hasBlockers ? blockers : 'Nessuno';
-            const splitBlockers = pdf.splitTextToSize(blockersText, pageWidth - margin * 2);
+            const blockersContent = hasBlockers ? blockersText : 'Nessuno';
+            const splitBlockers = pdf.splitTextToSize(blockersContent, pageWidth - margin * 2);
             pdf.text(splitBlockers, margin, y);
+            y += (splitBlockers.length * lineHeight) + lineHeight;
+
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(14);
+            pdf.text(`Report di: ${reporterName || 'Sconosciuto'}`, margin, y);
+            y += lineHeight;
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(12);
+            pdf.text(`ID Utente: ${userId}`, margin, y);
+
+            pdf.setFontSize(10);
+            pdf.setTextColor(150, 150, 150);
+            const footerText = 'Generato da AI Team Stand-up Automator';
+            const textWidth = pdf.getStringUnitWidth(footerText) * pdf.internal.getFontSize() / pdf.internal.scaleFactor;
+            const xOffset = (pageWidth - textWidth) / 2;
+            pdf.text(footerText, xOffset, pageHeight - margin);
 
             pdf.save('report_standup.pdf');
         }
@@ -251,7 +473,7 @@
             const userQuery = `Oggi: ${yesterday}\nDomani: ${today}\nOstacoli: ${blockers}`;
             const apiKey = "";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            
+
             const payload = {
                 contents: [{ parts: [{ text: userQuery }] }],
                 tools: [{ "google_search": {} }],
@@ -259,14 +481,14 @@
                     parts: [{ text: systemPrompt }]
                 },
             };
-            
+
             try {
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                
+
                 const result = await response.json();
                 const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || "Nessun riassunto AI generato.";
                 return text;
@@ -276,17 +498,127 @@
             }
         }
 
-        // Logica principale dell'app, eseguita solo dopo l'autenticazione
+        async function getSentimentAnalysis(yesterday, today, blockers) {
+            const systemPrompt = "Sei un analista AI specializzato nell'analisi del sentiment. Analizza il seguente testo e restituisci una singola parola che descrive il sentiment generale: 'Positivo', 'Neutro', o 'Negativo'. Non aggiungere spiegazioni o punteggiatura, solo la parola.";
+            const userQuery = `Report di stand-up:\nAttività completate: ${yesterday}\nObiettivi futuri: ${today}\nOstacoli: ${blockers}`;
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || "Neutro";
+                return text;
+            } catch (e) {
+                console.error("Errore nella chiamata all'API Gemini per il sentiment:", e);
+                return "Neutro";
+            }
+        }
+
+        async function copyToClipboard(text) {
+            try {
+                const tempTextarea = document.createElement('textarea');
+                tempTextarea.value = text;
+                document.body.appendChild(tempTextarea);
+                tempTextarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempTextarea);
+                return true;
+            } catch (e) {
+                console.error("Errore nella copia negli appunti:", e);
+                return false;
+            }
+        }
+
+        function handleDownloadAndShare() {
+            generatePdf();
+            const downloadMessage = document.getElementById('download-message');
+            downloadMessage.textContent = "Il tuo report PDF è stato scaricato. Ora puoi trovarlo nella tua cartella 'Download' e allegarlo alla chat di WhatsApp.";
+            downloadMessage.classList.remove('hidden');
+            downloadMessage.classList.add('animate-fadeIn');
+            setTimeout(() => downloadMessage.classList.add('hidden'), 5000);
+        }
+
         function initializeAppLogic() {
             const form = document.getElementById('standup-form');
+            const teamMemberForm = document.getElementById('team-member-form');
+            const yesterdayList = document.getElementById('yesterday-list');
+            const yesterdayInput = document.getElementById('yesterday-input');
+            const blockersTextarea = document.getElementById('blockers');
+            const assigneeDiv = document.getElementById('blocker-assignee-div');
+            const assigneeSelect = document.getElementById('blocker-assignee-select');
             const reportOutput = document.getElementById('report-output');
             const newReportBtn = document.getElementById('new-report-btn');
-            const userIdDisplay = document.getElementById('userIdDisplay');
             const submitBtn = document.getElementById('submit-btn');
             const newReportBtnDiv = document.getElementById('new-report-btn-div');
-            
-            userIdDisplay.textContent = window.getUserId();
+            const userIdDisplay = document.getElementById('user-id-display');
+            const notificationMessageDiv = document.getElementById('notification-sent-message');
+            if(userIdDisplay) {
+                 userIdDisplay.textContent = userId;
+            }
 
+            // Show/hide assignee select based on blockers textarea content
+            blockersTextarea.addEventListener('input', () => {
+                if (blockersTextarea.value.trim() !== '') {
+                    assigneeDiv.classList.remove('hidden');
+                } else {
+                    assigneeDiv.classList.add('hidden');
+                    assigneeSelect.value = "";
+                }
+            });
+            
+            teamMemberForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const memberNameInput = document.getElementById('team-member-name-input');
+                const memberEmailInput = document.getElementById('team-member-email-input');
+                const memberName = memberNameInput.value.trim();
+                const memberEmail = memberEmailInput.value.trim();
+
+                if (memberName && memberEmail) {
+                    await addTeamMember(memberName, memberEmail);
+                    memberNameInput.value = '';
+                    memberEmailInput.value = '';
+                }
+            });
+
+            document.getElementById('add-yesterday-task-btn').addEventListener('click', () => {
+                const taskText = yesterdayInput.value.trim();
+                if (taskText) {
+                    const li = document.createElement('li');
+                    li.className = 'flex items-center justify-between py-2 text-lightText animate-slideIn';
+                    li.innerHTML = `
+                        <div class="flex items-center">
+                            <input type="checkbox" class="task-checkbox mr-3">
+                            <span>${taskText}</span>
+                        </div>
+                        <button type="button" class="text-lightMuted hover:text-danger ml-2 transition-colors duration-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 112 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    `;
+                    yesterdayList.appendChild(li);
+                    yesterdayInput.value = '';
+
+                    li.querySelector('button').addEventListener('click', () => {
+                        li.remove();
+                    });
+                }
+            });
+            
             const steps = {
                 1: document.getElementById('step-1'),
                 2: document.getElementById('step-2'),
@@ -296,254 +628,341 @@
 
             const resetFlow = () => {
                 Object.values(steps).forEach((step, index) => {
-                    const icon = step.querySelector('.step-icon');
-                    step.classList.remove('processing', 'completed');
-                    icon.style.backgroundColor = index === 0 ? '#3b82f6' : '#a8a29e';
-                    icon.style.borderColor = index === 0 ? '#2563eb' : '#78716c';
+                    if (step) {
+                        const icon = step.querySelector('.step-icon');
+                        step.classList.remove('processing', 'completed');
+                        if (icon) {
+                            icon.style.backgroundColor = index === 0 ? '#3b82f6' : '#94a3b8';
+                            icon.style.borderColor = index === 0 ? '#2563eb' : '#64748b';
+                        }
+                    }
                 });
             };
-            
+
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                
-                const yesterday = document.getElementById('yesterday').value;
-                const today = document.getElementById('today').value;
-                const blockers = document.getElementById('blockers').value;
 
-                if (!yesterday || !today) {
-                    reportOutput.innerHTML = '<p class="text-red-500">Per favore, compila almeno i primi due campi.</p>';
+                const myName = document.getElementById('my-name-input').value.trim();
+                const yesterdayTasks = Array.from(document.querySelectorAll('#yesterday-list li input:checked + span')).map(span => span.textContent);
+                const yesterdayText = yesterdayTasks.join(', ');
+                const today = document.getElementById('today').value;
+                const blockers = blockersTextarea.value;
+                const assignedToEmail = assigneeSelect.value;
+                const assignedToName = assigneeSelect.options[assigneeSelect.selectedIndex]?.text || '';
+
+                if (!myName) {
+                    reportOutput.innerHTML = `<p class="text-danger">Per favore, inserisci il tuo nome.</p>`;
                     return;
                 }
-                
-                // Nascondi i pulsanti e mostra lo spinner
+                if (yesterdayTasks.length === 0 || !today) {
+                    reportOutput.innerHTML = `<p class="text-danger">Per favore, spunta almeno un'attività e compila il campo "obiettivi per domani".</p>`;
+                    return;
+                }
+
                 submitBtn.disabled = true;
                 submitBtn.classList.add('hidden');
                 newReportBtnDiv.classList.add('hidden');
                 reportOutput.innerHTML = `
-                    <div id="loading-spinner" class="flex flex-col items-center justify-center p-8">
-                        <svg class="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <div id="loading-spinner" class="flex flex-col items-center justify-center p-8 text-lightMuted">
+                        <svg class="animate-spin h-10 w-10 text-accent" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <p class="mt-4 text-stone-600">Generazione del report in corso...</p>
+                        <p class="mt-4">Generazione del report in corso...</p>
+                        <p id="loading-step-1" class="mt-2 text-sm text-center">Analisi del contenuto e generazione del riassunto...</p>
+                        <p id="loading-step-2" class="mt-2 text-sm text-center">Analisi del sentiment del team...</p>
+                        <p id="loading-step-3" class="mt-2 text-sm text-center">Salvataggio del report...</p>
                     </div>
                 `;
-                
+
                 resetFlow();
                 let currentStep = 1;
-                
-                // Step 1: Input del team
-                steps[currentStep].classList.add('completed');
-                const icon1 = steps[currentStep].querySelector('.step-icon');
-                icon1.style.backgroundColor = '#3b82f6';
-                icon1.style.borderColor = '#2563eb';
-                currentStep++;
-                
+
+                const step1 = document.getElementById('step-1');
+                if (step1) {
+                    step1.classList.add('completed');
+                    const icon1 = step1.querySelector('.step-icon');
+                    if (icon1) {
+                        icon1.style.backgroundColor = '#3b82f6';
+                        icon1.style.borderColor = '#2563eb';
+                    }
+                    currentStep++;
+                }
+
                 try {
-                    // Step 2: Analisi AI (chiamata all'API)
-                    steps[currentStep].classList.add('processing');
-                    const icon2 = steps[currentStep].querySelector('.step-icon');
-                    icon2.style.backgroundColor = '#3b82f6';
-                    icon2.style.borderColor = '#2563eb';
+                    const step2 = document.getElementById('step-2');
+                    if (step2) {
+                        step2.classList.add('processing');
+                        const icon2 = step2.querySelector('.step-icon');
+                        if (icon2) {
+                            icon2.style.backgroundColor = '#3b82f6';
+                            icon2.style.borderColor = '#2563eb';
+                        }
+                    }
 
-                    const aiSummary = await getAiSummary(yesterday, today, blockers);
-                    
-                    steps[currentStep].classList.remove('processing');
-                    steps[currentStep].classList.add('completed');
-                    currentStep++;
-                    
-                    // Step 3: Report Veloce
-                    steps[currentStep].classList.add('completed');
-                    const icon3 = steps[currentStep].querySelector('.step-icon');
-                    icon3.style.backgroundColor = '#3b82f6';
-                    icon3.style.borderColor = '#2563eb';
-                    currentStep++;
+                    const loadingStep1 = document.getElementById('loading-step-1');
+                    if (loadingStep1) loadingStep1.textContent = "Analisi del contenuto e generazione del riassunto... Completato!";
+                    const loadingStep2 = document.getElementById('loading-step-2');
+                    if (loadingStep2) loadingStep2.textContent = "Analisi del sentiment del team...";
+                    const loadingStep3 = document.getElementById('loading-step-3');
+                    if (loadingStep3) loadingStep3.textContent = "Salvataggio del report...";
 
-                    // Step 4: Consegna
-                    steps[currentStep].classList.add('completed');
-                    const icon4 = steps[currentStep].querySelector('.step-icon');
-                    icon4.style.backgroundColor = '#3b82f6';
-                    icon4.style.borderColor = '#2563eb';
-
-                    displayReport(yesterday, today, blockers, aiSummary);
+                    const aiSummary = await getAiSummary(yesterdayText, today, blockers);
+                    const sentiment = await getSentimentAnalysis(yesterdayText, today, blockers);
+                    const docId = await window.saveReport(myName, yesterdayText, today, blockers, assignedToEmail, assignedToName);
                     
-                    // Salva il report in Firestore (non blocca l'UI)
-                    window.saveReport(yesterday, today, blockers);
+                    const step3 = document.getElementById('step-3');
+                    if (step2) step2.classList.remove('processing');
+                    if (step3) {
+                        step3.classList.add('completed');
+                        const icon3 = step3.querySelector('.step-icon');
+                        if (icon3) {
+                            icon3.style.backgroundColor = '#3b82f6';
+                            icon3.style.borderColor = '#2563eb';
+                        }
+                    }
+                    const step4 = document.getElementById('step-4');
+                    if (step4) {
+                        step4.classList.add('completed');
+                        const icon4 = step4.querySelector('.step-icon');
+                        if (icon4) {
+                            icon4.style.backgroundColor = '#3b82f6';
+                            icon4.style.borderColor = '#2563eb';
+                        }
+                    }
+                    
+                    displayReport(docId, myName, yesterdayText, today, blockers, aiSummary, sentiment, assignedToName, assignedToEmail);
 
                 } catch (e) {
                     console.error("Si è verificato un errore durante la generazione del report:", e);
-                    reportOutput.innerHTML = `<p class="text-red-500">Si è verificato un errore nella generazione del report. Per favore, riprova.</p>`;
+                    reportOutput.innerHTML = `<p class="text-danger">Si è verificato un errore nella generazione del report. Per favore, riprova.</p>`;
                 } finally {
-                    // Nascondi lo spinner e mostra di nuovo i pulsanti
                     submitBtn.disabled = false;
                     submitBtn.classList.remove('hidden');
                     newReportBtnDiv.classList.remove('hidden');
                 }
             });
 
-            const displayReport = (yesterday, today, blockers, aiSummary) => {
+            const displayReport = (docId, reporterName, yesterday, today, blockers, aiSummary, sentiment, assignedToName, assignedToEmail) => {
                 const hasBlockers = blockers && blockers.toLowerCase() !== 'no' && blockers.trim() !== '';
+                let sentimentText = 'Neutro';
+                let sentimentEmoji = '😐';
+                let sentimentColor = 'text-warning';
+
+                if (sentiment.toLowerCase().includes('positivo')) {
+                    sentimentText = 'Positivo';
+                    sentimentEmoji = '😀';
+                    sentimentColor = 'text-success';
+                } else if (sentiment.toLowerCase().includes('negativo')) {
+                    sentimentText = 'Negativo';
+                    sentimentEmoji = '😞';
+                    sentimentColor = 'text-danger';
+                }
+                const encodedBlockers = encodeURIComponent(blockers);
+                const encodedSubject = encodeURIComponent(`Aggiornamento Stand-up: Ostacolo da risolvere`);
+                const encodedBody = encodeURIComponent(`Ciao ${assignedToName},\n\nTi scrivo in merito all'ostacolo segnalato durante lo stand-up di oggi:\n\n"${blockers}"\n\nGrazie per l'aiuto!`);
+                const mailtoLink = `mailto:${assignedToEmail}?subject=${encodedSubject}&body=${encodedBody}`;
 
                 const reportHTML = `
-                    <div id="report-pdf-content" class="p-4 bg-white rounded-lg shadow-inner">
-                        <h3 class="font-bold text-stone-800 text-xl mb-4">Report del Giorno</h3>
+                    <div id="report-pdf-content" class="p-6 card rounded-xl shadow-lg border border-slate-700 animate-fadeIn">
+                        <h3 class="font-bold text-lightText text-2xl mb-4">Report del Giorno</h3>
+
+                        <div class="flex items-center mb-4">
+                            <span class="mr-2 text-2xl ${sentimentColor}">${sentimentEmoji}</span>
+                            <p class="text-lightMuted"><strong class="${sentimentColor}">Sentiment del Team:</strong> ${sentimentText}</p>
+                        </div>
+
                         <div class="mb-4">
-                            <h4 class="font-semibold text-stone-800 text-lg mb-2">Riassunto AI</h4>
-                            <p id="ai-summary-text" class="text-stone-700">${aiSummary}</p>
+                            <h4 class="font-semibold text-lightText text-lg mb-2">Riassunto AI</h4>
+                            <p id="ai-summary-text" class="text-lightMuted prose leading-relaxed">${aiSummary}</p>
                         </div>
                         <div class="mb-4">
-                            <h4 class="font-semibold text-stone-800 text-lg mb-2">Dettagli Originali</h4>
-                            <ul class="list-disc list-inside space-y-1 text-stone-700">
+                            <h4 class="font-semibold text-lightText text-lg mb-2">Dettagli Originali</h4>
+                            <ul class="list-disc list-inside space-y-1 text-lightMuted">
+                                <li><strong>Report di:</strong> ${reporterName}</li>
                                 <li><strong>Completato Oggi:</strong> ${yesterday}</li>
                                 <li><strong>Obiettivi per Domani:</strong> ${today}</li>
                             </ul>
                         </div>
                         <div class="mt-4">
-                            <h4 class="font-semibold text-stone-800 text-lg mb-2">Stato e Ostacoli</h4>
+                            <h4 class="font-semibold text-lightText text-lg mb-2">Stato e Ostacoli</h4>
                             <div class="flex items-center">
-                                ${hasBlockers 
-                                    ? `<span class="mr-2 text-2xl">❗️</span> <p class="text-stone-700"><strong class="text-amber-600">Ostacolo Rilevato:</strong> ${blockers}</p>` 
-                                    : `<span class="mr-2 text-2xl">✅</span> <p class="text-stone-700"><strong class="text-green-600">Nessun ostacolo</strong> segnalato.</p>`
+                                ${hasBlockers
+                                    ? `<span class="mr-2 text-2xl animate-pulse text-danger">❗️</span> <p class="text-lightMuted"><strong class="text-danger">Ostacolo Rilevato:</strong> ${blockers}</p>`
+                                    : `<span class="mr-2 text-2xl text-success">✅</span> <p class="text-lightMuted"><strong class="text-success">Nessun ostacolo</strong> segnalato.</p>`
                                 }
                             </div>
+                            ${assignedToName ? `
+                                <p class="mt-2 text-sm text-lightMuted"><strong>Assegnato a:</strong> ${assignedToName}</p>
+                                <a href="${mailtoLink}" id="email-blocker-btn" class="mt-4 inline-flex items-center justify-center bg-accent text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    <span class="icon">📧</span>
+                                    <span>Invia Ostacolo via Email</span>
+                                </a>
+                            ` : ''}
                         </div>
                     </div>
-                    <button id="share-report-btn" class="mt-6 w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
-                        Scarica Report PDF
-                    </button>
+                    <div id="share-options" class="mt-6">
+                        <h4 class="font-semibold text-lightText text-lg mb-2">Opzioni di Condivisione</h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <button id="download-and-share-btn" class="flex-1 flex items-center justify-center bg-accent text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <span class="icon">💾</span>
+                                <span>Scarica e Condividi PDF</span>
+                            </button>
+                            <button id="copy-summary-btn" class="flex-1 flex items-center justify-center bg-slate-700 text-lightText font-semibold py-3 px-4 rounded-lg hover:bg-slate-600 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
+                                <span class="icon">📋</span>
+                                <span>Copia Riassunto</span>
+                            </button>
+                        </div>
+                        <p id="download-message" class="text-center text-accent mt-4 hidden"></p>
+                        <p id="copy-status" class="text-center text-success mt-4 hidden">Copiato negli appunti!</p>
+                    </div>
                 `;
                 reportOutput.innerHTML = reportHTML;
-                
-                // Aggiunge l'evento per la generazione del PDF
-                document.getElementById('share-report-btn').addEventListener('click', generatePdf);
+
+                document.getElementById('download-and-share-btn').addEventListener('click', handleDownloadAndShare);
+                document.getElementById('copy-summary-btn').addEventListener('click', () => {
+                    const aiSummaryText = document.getElementById('ai-summary-text').textContent;
+                    copyToClipboard(aiSummaryText).then(success => {
+                        const copyStatus = document.getElementById('copy-status');
+                        if (success) {
+                            copyStatus.textContent = 'Copiato negli appunti!';
+                            copyStatus.classList.remove('hidden');
+                            copyStatus.classList.add('animate-fadeIn');
+                            setTimeout(() => copyStatus.classList.add('hidden'), 3000);
+                        } else {
+                            copyStatus.textContent = 'Errore nella copia.';
+                            copyStatus.classList.remove('hidden');
+                            copyStatus.classList.add('text-danger');
+                        }
+                    });
+                });
             };
-            
+
             newReportBtn.addEventListener('click', () => {
                 form.reset();
+                yesterdayList.innerHTML = '';
+                assigneeDiv.classList.add('hidden');
                 resetFlow();
-                reportOutput.innerHTML = '<p class="italic">Il report generato apparirà qui dopo aver inviato il modulo.</p>';
+                reportOutput.innerHTML = '<p class="italic text-lightMuted">Il report generato apparirà qui dopo aver inviato il modulo.</p>';
                 submitBtn.classList.remove('hidden');
                 newReportBtnDiv.classList.remove('hidden');
             });
 
             resetFlow();
         }
-        
+
         (async () => {
             try {
-                if (typeof __initial_auth_token !== 'undefined') {
-                    await signInWithCustomToken(auth, __initial_auth_token);
+                const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : undefined;
+                if (token) {
+                    await signInWithCustomToken(auth, token);
                 } else {
                     await signInAnonymously(auth);
                 }
                 const user = auth.currentUser;
-                if (user) {
-                    userId = user.uid;
-                } else {
-                    userId = crypto.randomUUID();
-                }
+                userId = user ? user.uid : crypto.randomUUID();
                 console.log(`User authenticated with ID: ${userId}`);
+                await loadTeamMembers();
                 attachFirestoreListener();
                 initializeAppLogic();
             } catch (e) {
                 console.error("Autenticazione fallita:", e);
+                // Il codice non si blocca, l'app funzionerà ma senza funzionalità di database
+                const userIdDisplay = document.getElementById('user-id-display');
+                if(userIdDisplay) {
+                     userIdDisplay.textContent = 'Autenticazione fallita';
+                }
             }
         })();
     </script>
 </head>
-<body class="bg-stone-50 text-stone-800">
-
+<body class="transition-colors duration-500">
     <div class="container mx-auto p-4 sm:p-6 lg:p-8">
         <header class="text-center mb-10">
-            <h1 class="text-4xl font-bold text-stone-900">AI Team Stand-up Automator</h1>
-            <p class="mt-2 text-lg text-stone-600">Inserisci il tuo aggiornamento giornaliero e osserva la magia dell'automazione.</p>
+            <h1 class="text-4xl font-bold text-lightText">AI Team Stand-up Automator</h1>
+            <p class="mt-2 text-lg text-lightMuted">Inserisci il tuo aggiornamento giornaliero e osserva la magia dell'automazione.</p>
+            <p class="mt-4 text-xs text-lightMuted">Il tuo ID utente per la collaborazione: <span id="user-id-display" class="font-mono text-lightText break-all">Caricamento...</span></p>
         </header>
-
         <main class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            
             <div class="space-y-8">
-                <div class="bg-white p-6 rounded-xl shadow-md border border-stone-200">
-                    <h2 class="text-2xl font-semibold mb-4 text-stone-800">✍️ Inserisci il tuo Aggiornamento</h2>
-                    <p class="text-stone-600 mb-6">Compila i campi sottostanti per generare il report del tuo stand-up.</p>
+                <div class="p-6 rounded-xl shadow-lg border border-slate-700 card">
+                    <h2 class="text-2xl font-semibold mb-4 text-lightText">👋 Identificazione e Team</h2>
+                    <p class="text-lightMuted mb-4">Inserisci il tuo nome per identificarti nei report e aggiungi i membri del tuo team con la loro email.</p>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="my-name-input" class="block text-sm font-medium text-lightMuted">Il mio nome</label>
+                            <input id="my-name-input" type="text" class="mt-1 block w-full rounded-md border-slate-600 bg-slate-800 text-lightText shadow-sm focus:border-accent focus:ring-accent sm:text-sm placeholder:text-slate-500 p-2" placeholder="Es. Mario Rossi">
+                        </div>
+                        <form id="team-member-form">
+                            <label class="block text-sm font-medium text-lightMuted">Aggiungi un membro del team</label>
+                            <div class="flex mt-1 space-x-2">
+                                <input id="team-member-name-input" type="text" class="flex-grow rounded-md border-slate-600 bg-slate-800 text-lightText shadow-sm focus:border-accent focus:ring-accent sm:text-sm placeholder:text-slate-500 p-2" placeholder="Nome">
+                                <input id="team-member-email-input" type="email" class="flex-grow rounded-md border-slate-600 bg-slate-800 text-lightText shadow-sm focus:border-accent focus:ring-accent sm:text-sm placeholder:text-slate-500 p-2" placeholder="Email">
+                                <button type="submit" class="bg-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700 transition-colors duration-300">Aggiungi</button>
+                            </div>
+                        </form>
+                    </div>
+                    <h3 class="text-xl font-semibold text-lightText mt-6">Membri del Team</h3>
+                    <ul id="team-members-list" class="space-y-2 mt-4"></ul>
+                </div>
+
+                <div class="p-6 rounded-xl shadow-lg border border-slate-700 card">
+                    <h2 class="text-2xl font-semibold mb-4 text-lightText">✍️ Inserisci il tuo Aggiornamento</h2>
+                    <p class="text-lightMuted mb-6">Compila i campi sottostanti per generare il report del tuo stand-up.</p>
                     <form id="standup-form" class="space-y-4">
                         <div>
-                            <label for="yesterday" class="block text-sm font-medium text-stone-700">Cosa hai completato oggi?</label>
-                            <textarea id="yesterday" name="yesterday" rows="3" class="mt-1 block w-full rounded-md border-stone-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="Es: Ho finalizzato la feature di login..."></textarea>
+                            <label for="yesterday-input" class="block text-sm font-medium text-lightMuted">Cosa hai completato oggi?</label>
+                            <div class="flex mt-1">
+                                <input id="yesterday-input" type="text" class="flex-grow rounded-l-md border-slate-600 bg-slate-800 text-lightText shadow-sm focus:border-accent focus:ring-accent sm:text-sm placeholder:text-slate-500 p-2 transition-all duration-300" placeholder="Aggiungi un'attività...">
+                                <button type="button" id="add-yesterday-task-btn" class="bg-accent text-white px-4 py-2 rounded-r-md font-semibold hover:bg-blue-700 transition-colors duration-300">Aggiungi</button>
+                            </div>
+                            <ul id="yesterday-list" class="mt-2 space-y-2"></ul>
                         </div>
                         <div>
-                            <label for="today" class="block text-sm font-medium text-stone-700">Quali sono i tuoi obiettivi per domani?</label>
-                            <textarea id="today" name="today" rows="3" class="mt-1 block w-full rounded-md border-stone-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="Es: Inizierò a lavorare sull'integrazione del sistema di pagamento..."></textarea>
+                            <label for="today" class="block text-sm font-medium text-lightMuted">Quali sono i tuoi obiettivi per domani?</label>
+                            <textarea id="today" name="today" rows="3" class="mt-1 block w-full rounded-md border-slate-600 bg-slate-800 text-lightText shadow-sm focus:border-accent focus:ring-accent sm:text-sm p-2 placeholder:text-slate-500" placeholder="Es: Inizierò a lavorare sull'integrazione del sistema di pagamento..."></textarea>
                         </div>
                         <div>
-                            <label for="blockers" class="block text-sm font-medium text-stone-700">Se hai incontrato ostacoli indica quali?</label>
-                            <textarea id="blockers" name="blockers" rows="2" class="mt-1 block w-full rounded-md border-stone-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="Es: No / Sì, sto aspettando le nuove API dal team backend..."></textarea>
+                            <label for="blockers" class="block text-sm font-medium text-lightMuted">Se hai incontrato ostacoli indica quali?</label>
+                            <textarea id="blockers" name="blockers" rows="2" class="mt-1 block w-full rounded-md border-slate-600 bg-slate-800 text-lightText shadow-sm focus:border-accent focus:ring-accent sm:text-sm p-2 placeholder:text-slate-500" placeholder="Es: No / Sì, sto aspettando le nuove API dal team backend..."></textarea>
                         </div>
-                        <button type="submit" id="submit-btn" class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                        <div id="blocker-assignee-div" class="hidden mt-4 p-4 border border-slate-600 rounded-md animate-fadeIn">
+                            <label for="blocker-assignee-select" class="block text-sm font-medium text-lightMuted">Assegna l'ostacolo a:</label>
+                            <select id="blocker-assignee-select" class="mt-1 block w-full rounded-md border-slate-600 bg-slate-800 text-lightText shadow-sm focus:border-accent focus:ring-accent sm:text-sm p-2"></select>
+                            <p id="notification-sent-message" class="text-success text-sm mt-2 hidden text-center">Notifica inviata!</p>
+                        </div>
+                        <button type="submit" id="submit-btn" class="w-full bg-accent text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 animate-pulseBg">
                             Genera Report Automatico
                         </button>
                         <div id="new-report-btn-div">
-                            <button type="button" id="new-report-btn" class="w-full bg-stone-200 text-stone-800 font-semibold py-3 px-4 rounded-lg hover:bg-stone-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-stone-400 transition-colors">
+                            <button type="button" id="new-report-btn" class="w-full bg-slate-700 text-lightText font-semibold py-3 px-4 rounded-lg hover:bg-slate-600 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
                                 Nuovo Report
                             </button>
                         </div>
                     </form>
                 </div>
-
-                <div class="bg-white p-6 rounded-xl shadow-md border border-stone-200">
-                    <h2 class="text-2xl font-semibold mb-6 text-stone-800">⚙️ Come Funziona</h2>
-                    <div id="automation-flow" class="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0 sm:space-x-2">
-                        <!-- Step 1 -->
-                        <div id="step-1" class="step text-center w-full sm:w-1/4">
-                            <div class="step-icon mx-auto flex items-center justify-center w-16 h-16 bg-blue-500 text-white rounded-full border-4 border-blue-600 text-2xl">🤝</div>
-                            <p class="step-text mt-2 font-medium text-stone-700">Input Team</p>
-                        </div>
-                        <div class="w-1/4 h-1 bg-stone-200 hidden sm:block"></div>
-                        <!-- Step 2 -->
-                        <div id="step-2" class="step text-center w-full sm:w-1/4">
-                            <div class="step-icon mx-auto flex items-center justify-center w-16 h-16 bg-stone-400 text-white rounded-full border-4 border-stone-500 text-2xl">🧠</div>
-                            <p class="step-text mt-2 font-medium text-stone-700">Analisi AI</p>
-                        </div>
-                        <div class="w-1/4 h-1 bg-stone-200 hidden sm:block"></div>
-                        <!-- Step 3 -->
-                        <div id="step-3" class="step text-center w-full sm:w-1/4">
-                            <div class="step-icon mx-auto flex items-center justify-center w-16 h-16 bg-stone-400 text-white rounded-full border-4 border-stone-500 text-2xl">📋</div>
-                            <p class="step-text mt-2 font-medium text-stone-700">Report Veloce</p>
-                        </div>
-                        <div class="w-1/4 h-1 bg-stone-200 hidden sm:block"></div>
-                        <!-- Step 4 -->
-                        <div id="step-4" class="step text-center w-full sm:w-1/4">
-                            <div class="step-icon mx-auto flex items-center justify-center w-16 h-16 bg-stone-400 text-white rounded-full border-4 border-stone-500 text-2xl">📨</div>
-                            <p class="step-text mt-2 font-medium text-stone-700">Consegna</p>
-                        </div>
-                    </div>
-                </div>
             </div>
-
             <div class="space-y-8">
-                 <div class="bg-white p-6 rounded-xl shadow-md border border-stone-200 min-h-[300px]">
-                    <h2 class="text-2xl font-semibold mb-4 text-stone-800">📄 Report del Giorno</h2>
-                    <div id="report-output" class="text-stone-600 prose">
+                <div class="p-6 rounded-xl shadow-lg border border-slate-700 card min-h-[300px]">
+                    <h2 class="text-2xl font-semibold mb-4 text-lightText">📄 Report del Giorno</h2>
+                    <div id="report-output" class="text-lightMuted prose leading-relaxed">
                         <p class="italic">Il report generato apparirà qui dopo aver inviato il modulo.</p>
                     </div>
                 </div>
-
-                <div class="bg-white p-6 rounded-xl shadow-md border border-stone-200">
-                    <h2 class="text-2xl font-semibold mb-4 text-stone-800">📊 Dashboard di Analisi</h2>
-                    <p class="text-stone-600 mb-6">Visualizza i trend del team nel tempo per identificare pattern e migliorare il flusso di lavoro.</p>
+                <div class="p-6 rounded-xl shadow-lg border border-slate-700 card">
+                    <h2 class="text-2xl font-semibold mb-4 text-lightText">📊 Dashboard di Analisi</h2>
+                    <p class="text-lightMuted mb-6">Visualizza i trend del team nel tempo per identificare pattern e migliorare il flusso di lavoro.</p>
                     <div class="chart-container">
                         <canvas id="blockersChart"></canvas>
                     </div>
                 </div>
-                
-                <div class="bg-white p-6 rounded-xl shadow-md border border-stone-200">
-                    <h2 class="text-2xl font-semibold mb-4 text-stone-800">📜 Report Precedenti</h2>
+                <div class="p-6 rounded-xl shadow-lg border border-slate-700 card">
+                    <h2 class="text-2xl font-semibold mb-4 text-lightText">📜 Feed del Team</h2>
                     <ul id="past-reports" class="list-none space-y-4 p-0">
-                        <p class="italic text-stone-500">I tuoi ultimi report appariranno qui automaticamente.</p>
+                        <p class="italic text-lightMuted">I report del team appariranno qui automaticamente.</p>
                     </ul>
-                    <p class="text-sm mt-4 text-stone-600">ID Utente: <span id="userIdDisplay">Caricamento...</span></p>
                 </div>
             </div>
-
         </main>
     </div>
 </body>
