@@ -3,45 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Team Stand-up Automator</title>
-    <!-- 
-        Questo è un file HTML autonomo che dovrebbe funzionare correttamente su GitHub Pages.
-        Se stai caricando questo file su GitHub, i dati non verranno salvati nel database.
-        L'interazione con i campi e la generazione del report rimarranno comunque attive.
-    -->
+    <title>AI Team Automator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        darkBg: '#0f172a',
-                        darkCard: 'rgba(30, 41, 59, 0.5)',
+                        primary: '#181a1f',
+                        secondary: '#1f2127',
+                        tertiary: '#292b32',
                         accent: '#3b82f6',
                         lightText: '#e2e8f0',
-                        lightMuted: '#94a3b8',
+                        mutedText: '#a0aec0',
+                        activeLink: '#0f172a',
+                        activeLinkIcon: '#e2e8f0',
                         success: '#10b981',
                         danger: '#ef4444',
-                        warning: '#f97316',
                     },
                     keyframes: {
                         fadeIn: {
                             '0%': { opacity: 0, transform: 'translateY(10px)' },
                             '100%': { opacity: 1, transform: 'translateY(0)' },
                         },
-                        pulseBg: {
-                            '0%, 100%': { 'box-shadow': '0 0 0 0 rgba(59, 130, 246, 0.4)' },
-                            '50%': { 'box-shadow': '0 0 0 8px rgba(59, 130, 246, 0)' },
-                        },
-                        slideIn: {
-                            '0%': { transform: 'translateX(20px)', opacity: 0 },
+                        slideInLeft: {
+                            '0%': { transform: 'translateX(-20px)', opacity: 0 },
                             '100%': { transform: 'translateX(0)', opacity: 1 },
-                        },
+                        }
                     },
                     animation: {
                         fadeIn: 'fadeIn 0.5s ease-out forwards',
-                        pulseBg: 'pulseBg 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        slideIn: 'slideIn 0.3s ease-out forwards',
+                        slideInLeft: 'slideInLeft 0.5s ease-out forwards',
                     }
                 }
             }
@@ -53,53 +45,94 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            backdrop-filter: blur(10px);
-            background-color: #0f172a;
-            background-size: cover;
-            background-position: center;
-        }
-        .prose strong {
+            background-color: #1f2127;
             color: #e2e8f0;
         }
         .card {
-            background-color: rgba(30, 41, 59, 0.5);
+            background-color: #292b32;
+            border: 1px solid #374151;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             backdrop-filter: blur(10px);
         }
-        input:focus, textarea:focus {
-            outline: none;
-            box-shadow: 0 0 0 2px #3b82f6;
+        .sidebar {
+            background-color: #181a1f;
+            color: #a0aec0;
+            border-right: 1px solid #374151;
         }
-        input[type="checkbox"] {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 1.25rem;
-            height: 1.25rem;
-            border: 2px solid #94a3b8;
-            background-color: transparent;
-            border-radius: 0.25rem;
-            cursor: pointer;
+        .sidebar-link.active {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .sidebar-link.active .icon-class {
+            color: white;
+        }
+        .sidebar-link {
             transition: all 0.2s ease;
         }
-        input[type="checkbox"]:checked {
-            background-color: #3b82f6;
-            border-color: #3b82f6;
-        }
-        input[type="checkbox"]:checked::after {
-            content: '✓';
-            display: flex;
-            justify-content: center;
-            align-items: center;
+        .sidebar-link:hover {
+            background-color: rgba(59, 130, 246, 0.2);
             color: white;
-            font-size: 0.8rem;
         }
-        .icon {
-            width: 1.25rem;
-            height: 1.25rem;
-            margin-right: 0.5rem;
-            display: inline-block;
+        .badge {
+            background-color: #4b5563;
+            color: #e2e8f0;
+            border-radius: 9999px;
+            padding: 2px 8px;
+            font-size: 12px;
+        }
+        .dropdown-menu {
+            background-color: #292b32;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .dropdown-item:hover {
+            background-color: #3b82f6;
+        }
+        .chart-container {
+            height: 300px;
+        }
+        .button-primary {
+            background-color: #3b82f6;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+        }
+        .button-primary:hover {
+            background-color: #2563eb;
+        }
+        .button-secondary {
+            background-color: #4a5568;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+        }
+        .button-secondary:hover {
+            background-color: #2d3748;
+        }
+        .input-field {
+            background-color: #1f2127;
+            border: 1px solid #4a5568;
+            color: #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .input-field:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+        }
+        .prose strong {
+            color: #e2e8f0;
         }
     </style>
     <script type="module">
@@ -108,7 +141,7 @@
         import { getFirestore, doc, addDoc, onSnapshot, collection, query, orderBy, limit, serverTimestamp, updateDoc, getDocs, deleteDoc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 
-        // CRITICAL FIX: Ensure Firebase variables exist before trying to use them.
+        // Firebase variables and initialization
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -232,22 +265,20 @@
             teamList.innerHTML = '';
             
             if (teamMembers.length === 0) {
-                teamList.innerHTML = '<p class="text-lightMuted text-sm italic">Nessun membro del team aggiunto.</p>';
+                teamList.innerHTML = '<p class="text-mutedText text-sm italic">Nessun membro del team aggiunto.</p>';
                 return;
             }
             
             teamMembers.forEach(member => {
                 const li = document.createElement('li');
-                li.className = 'flex items-center justify-between bg-slate-800 p-2 rounded-md transition-colors duration-200 hover:bg-slate-700';
+                li.className = 'flex items-center justify-between bg-secondary p-2 rounded-md transition-colors duration-200 hover:bg-tertiary';
                 li.innerHTML = `
                     <div class="flex flex-col">
                         <span class="text-lightText text-sm font-semibold">${member.name}</span>
-                        <span class="text-lightMuted text-xs">${member.email}</span>
+                        <span class="text-mutedText text-xs">${member.email}</span>
                     </div>
                     <button data-id="${member.id}" class="delete-member-btn text-danger hover:text-red-700 transition-colors duration-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 112 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" />
-                        </svg>
+                        <i class="fas fa-trash-alt"></i>
                     </button>
                 `;
                 teamList.appendChild(li);
@@ -292,7 +323,7 @@
             pastReportsList.innerHTML = '';
             
             if (docs.length === 0) {
-                 pastReportsList.innerHTML = '<p class="italic text-lightMuted">Nessun report del team trovato. I report salvati appariranno qui automaticamente.</p>';
+                 pastReportsList.innerHTML = '<p class="italic text-mutedText">Nessun report del team trovato.</p>';
                  return;
             }
 
@@ -303,15 +334,15 @@
                 const hasBlockers = report.blockers && report.blockers.toLowerCase() !== 'no' && report.blockers.trim() !== '';
 
                 const li = document.createElement('li');
-                li.className = 'border-b border-slate-700 pb-4 last:border-b-0 last:pb-0 pt-4 first:pt-0 animate-fadeIn';
+                li.className = 'border-b border-tertiary pb-4 last:border-b-0 last:pb-0 pt-4 first:pt-0 animate-fadeIn';
                 li.innerHTML = `
-                    <p class="text-xs font-semibold text-lightMuted">Reporter: <span class="font-normal">${report.reporterName || 'Sconosciuto'}</span></p>
+                    <p class="text-xs font-semibold text-mutedText">Reporter: <span class="font-normal text-lightText">${report.reporterName || 'Sconosciuto'}</span></p>
                     <p class="text-sm font-semibold text-lightText mt-1">${formattedDate}</p>
-                    <p class="text-sm mt-1 text-lightMuted"><strong>Completato:</strong> ${report.yesterday}</p>
-                    <p class="text-sm mt-1 text-lightMuted"><strong>Obiettivi:</strong> ${report.today}</p>
-                    <p class="text-sm mt-1 text-lightMuted"><strong>Ostacoli:</strong> ${hasBlockers ? report.blockers : 'Nessuno'}</p>
+                    <p class="text-sm mt-1 text-mutedText"><strong>Completato:</strong> ${report.yesterday}</p>
+                    <p class="text-sm mt-1 text-mutedText"><strong>Obiettivi:</strong> ${report.today}</p>
+                    <p class="text-sm mt-1 text-mutedText"><strong>Ostacoli:</strong> ${hasBlockers ? report.blockers : 'Nessuno'}</p>
                     ${report.assignedToName ? `
-                        <p class="mt-2 text-sm text-lightMuted"><strong>Assegnato a:</strong> ${report.assignedToName}</p>
+                        <p class="mt-2 text-sm text-mutedText"><strong>Assegnato a:</strong> ${report.assignedToName}</p>
                     ` : ''}
                 `;
                 pastReportsList.appendChild(li);
@@ -379,11 +410,11 @@
                         scales: {
                             y: {
                                 beginAtZero: true,
-                                ticks: { color: '#94a3b8' },
+                                ticks: { color: '#a0aec0' },
                                 grid: { color: 'rgba(255, 255, 255, 0.1)' }
                             },
                             x: {
-                                ticks: { color: '#94a3b8' },
+                                ticks: { color: '#a0aec0' },
                                 grid: { color: 'rgba(255, 255, 255, 0.1)' }
                             }
                         },
@@ -419,7 +450,6 @@
             const lineHeight = 10;
             const todayDate = new Date().toLocaleDateString('it-IT');
 
-            // PDF Header
             pdf.setFillColor(59, 130, 246);
             pdf.rect(0, 0, pageWidth, 25, 'F');
 
@@ -594,6 +624,10 @@
             const newReportBtnDiv = document.getElementById('new-report-btn-div');
             const userIdDisplay = document.getElementById('user-id-display');
             const notificationMessageDiv = document.getElementById('notification-sent-message');
+            const navLinks = document.querySelectorAll('.nav-link');
+            const sections = document.querySelectorAll('.main-section');
+            const mobileSidebarBtn = document.getElementById('mobile-sidebar-btn');
+            const sidebar = document.getElementById('sidebar');
 
             if (userIdDisplay) {
                 userIdDisplay.textContent = userId || 'Non disponibile';
@@ -604,6 +638,26 @@
                  const userIdNote = document.getElementById('user-id-note');
                  if(userIdNote) userIdNote.innerHTML = 'Funzionalità di salvataggio/condivisione non attiva. Per usare il database, carica questo file in un ambiente supportato.';
             }
+
+            // Tabs/sections logic
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    navLinks.forEach(nav => nav.classList.remove('active'));
+                    link.classList.add('active');
+                    sections.forEach(sec => sec.classList.add('hidden'));
+                    const target = link.getAttribute('data-target');
+                    const targetSection = document.getElementById(target);
+                    if (targetSection) {
+                        targetSection.classList.remove('hidden');
+                    }
+                });
+            });
+
+            // Mobile sidebar
+            mobileSidebarBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('-translate-x-full');
+            });
 
             // Show/hide assignee select based on blockers textarea content
             blockersTextarea.addEventListener('input', () => {
@@ -646,16 +700,14 @@
                 const taskText = yesterdayInput.value.trim();
                 if (taskText) {
                     const li = document.createElement('li');
-                    li.className = 'flex items-center justify-between py-2 text-lightText animate-slideIn';
+                    li.className = 'flex items-center justify-between py-2 text-lightText animate-slideInLeft';
                     li.innerHTML = `
                         <div class="flex items-center">
-                            <input type="checkbox" class="task-checkbox mr-3">
+                            <input type="checkbox" class="task-checkbox mr-3 accent-blue-500 w-4 h-4 rounded-full" checked>
                             <span>${taskText}</span>
                         </div>
-                        <button type="button" class="text-lightMuted hover:text-danger ml-2 transition-colors duration-200 delete-task-btn">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 112 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" />
-                            </svg>
+                        <button type="button" class="text-mutedText hover:text-danger ml-2 transition-colors duration-200 delete-task-btn">
+                            <i class="fas fa-trash-alt"></i>
                         </button>
                     `;
                     yesterdayList.appendChild(li);
@@ -682,12 +734,7 @@
             const resetFlow = () => {
                 Object.values(steps).forEach((step, index) => {
                     if (step) {
-                        const icon = step.querySelector('.step-icon');
                         step.classList.remove('processing', 'completed');
-                        if (icon) {
-                            icon.style.backgroundColor = index === 0 ? '#3b82f6' : '#94a3b8';
-                            icon.style.borderColor = index === 0 ? '#2563eb' : '#64748b';
-                        }
                     }
                 });
             };
@@ -716,11 +763,8 @@
                 submitBtn.classList.add('hidden');
                 newReportBtnDiv.classList.add('hidden');
                 reportOutput.innerHTML = `
-                    <div id="loading-spinner" class="flex flex-col items-center justify-center p-8 text-lightMuted">
-                        <svg class="animate-spin h-10 w-10 text-accent" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
+                    <div id="loading-spinner" class="flex flex-col items-center justify-center p-8 text-mutedText">
+                        <i class="fas fa-spinner fa-spin text-accent text-3xl"></i>
                         <p class="mt-4">Generazione del report in corso...</p>
                         <p id="loading-step-1" class="mt-2 text-sm text-center">Analisi del contenuto e generazione del riassunto...</p>
                         <p id="loading-step-2" class="mt-2 text-sm text-center">Analisi del sentiment del team...</p>
@@ -734,11 +778,6 @@
                 const step1 = document.getElementById('step-1');
                 if (step1) {
                     step1.classList.add('completed');
-                    const icon1 = step1.querySelector('.step-icon');
-                    if (icon1) {
-                        icon1.style.backgroundColor = '#3b82f6';
-                        icon1.style.borderColor = '#2563eb';
-                    }
                     currentStep++;
                 }
 
@@ -746,11 +785,6 @@
                     const step2 = document.getElementById('step-2');
                     if (step2) {
                         step2.classList.add('processing');
-                        const icon2 = step2.querySelector('.step-icon');
-                        if (icon2) {
-                            icon2.style.backgroundColor = '#3b82f6';
-                            icon2.style.borderColor = '#2563eb';
-                        }
                     }
 
                     const loadingStep1 = document.getElementById('loading-step-1');
@@ -773,20 +807,10 @@
                     if (step2) step2.classList.remove('processing');
                     if (step3) {
                         step3.classList.add('completed');
-                        const icon3 = step3.querySelector('.step-icon');
-                        if (icon3) {
-                            icon3.style.backgroundColor = '#3b82f6';
-                            icon3.style.borderColor = '#2563eb';
-                        }
                     }
                     const step4 = document.getElementById('step-4');
                     if (step4) {
                         step4.classList.add('completed');
-                        const icon4 = step4.querySelector('.step-icon');
-                        if (icon4) {
-                            icon4.style.backgroundColor = '#3b82f6';
-                            icon4.style.borderColor = '#2563eb';
-                        }
                     }
                     
                     displayReport(docId, myName, yesterdayText, today, blockers, aiSummary, sentiment, assignedToName, assignedToEmail);
@@ -805,7 +829,7 @@
                 const hasBlockers = blockers && blockers.toLowerCase() !== 'no' && blockers.trim() !== '';
                 let sentimentText = 'Neutro';
                 let sentimentEmoji = '😐';
-                let sentimentColor = 'text-warning';
+                let sentimentColor = 'text-mutedText';
 
                 if (sentiment.toLowerCase().includes('positivo')) {
                     sentimentText = 'Positivo';
@@ -822,21 +846,21 @@
                 const mailtoLink = `mailto:${assignedToEmail}?subject=${encodedSubject}&body=${encodedBody}`;
 
                 const reportHTML = `
-                    <div id="report-pdf-content" class="p-6 card rounded-xl shadow-lg border border-slate-700 animate-fadeIn">
+                    <div id="report-pdf-content" class="p-6 card rounded-xl shadow-lg animate-fadeIn">
                         <h3 class="font-bold text-lightText text-2xl mb-4">Report del Giorno</h3>
 
                         <div class="flex items-center mb-4">
                             <span class="mr-2 text-2xl ${sentimentColor}">${sentimentEmoji}</span>
-                            <p class="text-lightMuted"><strong class="${sentimentColor}">Sentiment del Team:</strong> ${sentimentText}</p>
+                            <p class="text-mutedText"><strong class="${sentimentColor}">Sentiment del Team:</strong> ${sentimentText}</p>
                         </div>
 
                         <div class="mb-4">
                             <h4 class="font-semibold text-lightText text-lg mb-2">Riassunto AI</h4>
-                            <p id="ai-summary-text" class="text-lightMuted prose leading-relaxed">${aiSummary}</p>
+                            <p id="ai-summary-text" class="text-mutedText prose leading-relaxed">${aiSummary}</p>
                         </div>
                         <div class="mb-4">
                             <h4 class="font-semibold text-lightText text-lg mb-2">Dettagli Originali</h4>
-                            <ul class="list-disc list-inside space-y-1 text-lightMuted">
+                            <ul class="list-disc list-inside space-y-1 text-mutedText">
                                 <li><strong>Report di:</strong> ${reporterName}</li>
                                 <li><strong>Completato Oggi:</strong> ${yesterday}</li>
                                 <li><strong>Obiettivi per Domani:</strong> ${today}</li>
@@ -846,14 +870,14 @@
                             <h4 class="font-semibold text-lightText text-lg mb-2">Stato e Ostacoli</h4>
                             <div class="flex items-center">
                                 ${hasBlockers
-                                    ? `<span class="mr-2 text-2xl animate-pulse text-danger">❗️</span> <p class="text-lightMuted"><strong class="text-danger">Ostacolo Rilevato:</strong> ${blockers}</p>`
-                                    : `<span class="mr-2 text-2xl text-success">✅</span> <p class="text-lightMuted"><strong class="text-success">Nessun ostacolo</strong> segnalato.</p>`
+                                    ? `<span class="mr-2 text-2xl animate-pulse text-danger">❗️</span> <p class="text-mutedText"><strong class="text-danger">Ostacolo Rilevato:</strong> ${blockers}</p>`
+                                    : `<span class="mr-2 text-2xl text-success">✅</span> <p class="text-mutedText"><strong class="text-success">Nessun ostacolo</strong> segnalato.</p>`
                                 }
                             </div>
                             ${assignedToName ? `
-                                <p class="mt-2 text-sm text-lightMuted"><strong>Assegnato a:</strong> ${assignedToName}</p>
-                                <a href="${mailtoLink}" id="email-blocker-btn" class="mt-4 inline-flex items-center justify-center bg-accent text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                    <span class="icon">📧</span>
+                                <p class="mt-2 text-sm text-mutedText"><strong>Assegnato a:</strong> ${assignedToName}</p>
+                                <a href="${mailtoLink}" id="email-blocker-btn" class="mt-4 inline-flex items-center justify-center button-primary">
+                                    <i class="fas fa-envelope mr-2"></i>
                                     <span>Invia Ostacolo via Email</span>
                                 </a>
                             ` : ''}
@@ -862,12 +886,12 @@
                     <div id="share-options" class="mt-6">
                         <h4 class="font-semibold text-lightText text-lg mb-2">Opzioni di Condivisione</h4>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <button id="download-and-share-btn" class="flex-1 flex items-center justify-center bg-accent text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                <span class="icon">💾</span>
+                            <button id="download-and-share-btn" class="flex-1 flex items-center justify-center button-primary">
+                                <i class="fas fa-download mr-2"></i>
                                 <span>Scarica e Condividi PDF</span>
                             </button>
-                            <button id="copy-summary-btn" class="flex-1 flex items-center justify-center bg-slate-700 text-lightText font-semibold py-3 px-4 rounded-lg hover:bg-slate-600 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
-                                <span class="icon">📋</span>
+                            <button id="copy-summary-btn" class="flex-1 flex items-center justify-center button-secondary">
+                                <i class="fas fa-clipboard mr-2"></i>
                                 <span>Copia Riassunto</span>
                             </button>
                         </div>
@@ -876,7 +900,7 @@
                     </div>
                 `;
                 reportOutput.innerHTML = reportHTML;
-
+                
                 document.getElementById('download-and-share-btn').addEventListener('click', handleDownloadAndShare);
                 document.getElementById('copy-summary-btn').addEventListener('click', () => {
                     const aiSummaryText = document.getElementById('ai-summary-text').textContent;
@@ -901,7 +925,7 @@
                 yesterdayList.innerHTML = '';
                 assigneeDiv.classList.add('hidden');
                 resetFlow();
-                reportOutput.innerHTML = '<p class="italic text-lightMuted">Il report generato apparirà qui dopo aver inviato il modulo.</p>';
+                reportOutput.innerHTML = '<p class="italic text-mutedText">Il report generato apparirà qui dopo aver inviato il modulo.</p>';
                 submitBtn.classList.remove('hidden');
                 newReportBtnDiv.classList.remove('hidden');
             });
@@ -927,8 +951,6 @@
                     userId = null;
                 }
                 
-                // CRITICAL FIX: The event listeners must be attached after the DOM is fully loaded.
-                // This ensures that all elements are available and ready to receive events.
                 document.addEventListener('DOMContentLoaded', initializeAppLogic);
 
             } catch (e) {
@@ -941,93 +963,164 @@
         })();
     </script>
 </head>
-<body class="transition-colors duration-500">
-    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
-        <header class="text-center mb-10">
-            <h1 class="text-4xl font-bold text-lightText">AI Team Stand-up Automator</h1>
-            <p class="mt-2 text-lg text-lightMuted">Inserisci il tuo aggiornamento giornaliero e osserva la magia dell'automazione.</p>
-            <p id="user-id-note" class="mt-4 text-xs text-lightMuted">Il tuo ID utente per la collaborazione: <span id="user-id-display" class="font-mono text-lightText break-all">Caricamento...</span></p>
-        </header>
-        <main class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div class="space-y-8">
-                <div class="p-6 rounded-xl shadow-lg border border-slate-700 card">
-                    <h2 class="text-2xl font-semibold mb-4 text-lightText">👋 Identificazione e Team</h2>
-                    <p class="text-lightMuted mb-4">Inserisci il tuo nome per identificarti nei report e aggiungi i membri del tuo team con la loro email.</p>
-                    <div class="space-y-4">
-                        <div>
-                            <label for="my-name-input" class="block text-sm font-medium text-lightMuted">Il mio nome</label>
-                            <input id="my-name-input" type="text" class="mt-1 block w-full rounded-md border-slate-600 bg-slate-800 text-lightText shadow-sm focus:border-accent focus:ring-accent sm:text-sm placeholder:text-slate-500 p-2" placeholder="Es. Mario Rossi">
-                        </div>
-                        <form id="team-member-form">
-                            <label class="block text-sm font-medium text-lightMuted">Aggiungi un membro del team</label>
-                            <div class="flex mt-1 space-x-2">
-                                <input id="team-member-name-input" type="text" class="flex-grow rounded-md border-slate-600 bg-slate-800 text-lightText shadow-sm focus:border-accent focus:ring-accent sm:text-sm placeholder:text-slate-500 p-2" placeholder="Nome">
-                                <input id="team-member-email-input" type="email" class="flex-grow rounded-md border-slate-600 bg-slate-800 text-lightText shadow-sm focus:border-accent focus:ring-accent sm:text-sm placeholder:text-slate-500 p-2" placeholder="Email">
-                                <button type="submit" class="bg-accent text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700 transition-colors duration-300">Aggiungi</button>
-                            </div>
-                        </form>
-                    </div>
-                    <h3 class="text-xl font-semibold text-lightText mt-6">Membri del Team</h3>
-                    <ul id="team-members-list" class="space-y-2 mt-4"></ul>
-                </div>
+<body class="bg-secondary text-lightText flex">
 
-                <div class="p-6 rounded-xl shadow-lg border border-slate-700 card">
-                    <h2 class="text-2xl font-semibold mb-4 text-lightText">✍️ Inserisci il tuo Aggiornamento</h2>
-                    <p class="text-lightMuted mb-6">Compila i campi sottostanti per generare il report del tuo stand-up.</p>
-                    <form id="standup-form" class="space-y-4">
-                        <div>
-                            <label for="yesterday-input" class="block text-sm font-medium text-lightMuted">Cosa hai completato oggi?</label>
-                            <div class="flex mt-1">
-                                <input id="yesterday-input" type="text" class="flex-grow rounded-l-md border-slate-600 bg-slate-800 text-lightText shadow-sm focus:border-accent focus:ring-accent sm:text-sm placeholder:text-slate-500 p-2 transition-all duration-300" placeholder="Aggiungi un'attività...">
-                                <button type="button" id="add-yesterday-task-btn" class="bg-accent text-white px-4 py-2 rounded-r-md font-semibold hover:bg-blue-700 transition-colors duration-300">Aggiungi</button>
-                            </div>
-                            <ul id="yesterday-list" class="mt-2 space-y-2"></ul>
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar w-64 p-4 min-h-screen flex flex-col justify-between fixed lg:relative -translate-x-full lg:translate-x-0 transition-transform duration-300 z-50">
+        <div>
+            <div class="flex items-center mb-8 p-2">
+                <i class="fas fa-brain text-accent text-3xl mr-3"></i>
+                <h1 class="text-xl font-bold">AI Automator</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li>
+                        <a href="#" class="nav-link active flex items-center p-3 rounded-md text-sm font-medium" data-target="dashboard-section">
+                            <i class="fas fa-home icon-class w-5 h-5 mr-3"></i>
+                            <span class="ml-1">Home</span>
+                        </a>
+                    </li>
+                    <li class="mt-2">
+                        <a href="#" class="nav-link flex items-center p-3 rounded-md text-sm font-medium text-mutedText hover:text-lightText hover:bg-tertiary" data-target="report-form-section">
+                            <i class="fas fa-tasks icon-class w-5 h-5 mr-3"></i>
+                            <span class="ml-1">I miei Compiti</span>
+                        </a>
+                    </li>
+                    <li class="mt-2">
+                        <a href="#" class="nav-link flex items-center p-3 rounded-md text-sm font-medium text-mutedText hover:text-lightText hover:bg-tertiary" data-target="report-form-section">
+                            <i class="fas fa-chart-line icon-class w-5 h-5 mr-3"></i>
+                            <span class="ml-1">Analisi</span>
+                        </a>
+                    </li>
+                    <li class="mt-2">
+                        <a href="#" class="nav-link flex items-center p-3 rounded-md text-sm font-medium text-mutedText hover:text-lightText hover:bg-tertiary" data-target="team-members-section">
+                            <i class="fas fa-users icon-class w-5 h-5 mr-3"></i>
+                            <span class="ml-1">Team</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+
+        <div class="mt-auto">
+            <p id="user-id-note" class="text-xs text-mutedText">ID Utente: <span id="user-id-display" class="font-mono text-lightText break-all">Caricamento...</span></p>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-4 lg:p-8 overflow-y-auto">
+        <!-- Mobile Sidebar Toggle -->
+        <button id="mobile-sidebar-btn" class="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-full bg-secondary">
+            <i class="fas fa-bars text-lightText"></i>
+        </button>
+
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-6">
+            <div class="flex flex-col">
+                <h2 class="text-3xl font-bold text-lightText">Home</h2>
+                <p class="text-mutedText">Benvenuto, [Nome Utente]</p>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="relative">
+                    <input type="text" placeholder="Cerca..." class="input-field pl-10 pr-4">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-mutedText"></i>
+                </div>
+                <button class="bg-accent text-white rounded-full w-8 h-8 flex items-center justify-center">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <div class="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold text-white">JD</div>
+            </div>
+        </header>
+
+        <!-- Sections (Main Content) -->
+        <div id="dashboard-section" class="main-section grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+            <!-- Card: Daily Report -->
+            <div class="card p-6 col-span-1 md:col-span-2 lg:col-span-1">
+                <h3 class="text-xl font-semibold mb-4">✍️ Crea un nuovo Report</h3>
+                <p class="text-sm text-mutedText mb-4">Compila i campi sottostanti per generare il report del tuo stand-up.</p>
+                <form id="standup-form" class="space-y-4">
+                    <div>
+                        <label for="my-name-input" class="block text-sm font-medium text-mutedText">Il mio nome</label>
+                        <input id="my-name-input" type="text" class="input-field mt-1 w-full" placeholder="Es. Mario Rossi">
+                    </div>
+                    <div>
+                        <label for="yesterday-input" class="block text-sm font-medium text-mutedText">Cosa hai completato oggi?</label>
+                        <div class="flex mt-1">
+                            <input id="yesterday-input" type="text" class="input-field flex-grow rounded-r-none" placeholder="Aggiungi un'attività...">
+                            <button type="button" id="add-yesterday-task-btn" class="bg-accent text-white px-4 rounded-r-md hover:bg-blue-700 transition-colors duration-300">Aggiungi</button>
                         </div>
-                        <div>
-                            <label for="today" class="block text-sm font-medium text-lightMuted">Quali sono i tuoi obiettivi per domani?</label>
-                            <textarea id="today" name="today" rows="3" class="mt-1 block w-full rounded-md border-slate-600 bg-slate-800 text-lightText shadow-sm focus:border-accent focus:ring-accent sm:text-sm p-2 placeholder:text-slate-500" placeholder="Es: Inizierò a lavorare sull'integrazione del sistema di pagamento..."></textarea>
-                        </div>
-                        <div>
-                            <label for="blockers" class="block text-sm font-medium text-lightMuted">Se hai incontrato ostacoli indica quali?</label>
-                            <textarea id="blockers" name="blockers" rows="2" class="mt-1 block w-full rounded-md border-slate-600 bg-slate-800 text-lightText shadow-sm focus:border-accent focus:ring-accent sm:text-sm p-2 placeholder:text-slate-500" placeholder="Es: No / Sì, sto aspettando le nuove API dal team backend..."></textarea>
-                        </div>
-                        <div id="blocker-assignee-div" class="hidden mt-4 p-4 border border-slate-600 rounded-md animate-fadeIn">
-                            <label for="blocker-assignee-select" class="block text-sm font-medium text-lightMuted">Assegna l'ostacolo a:</label>
-                            <select id="blocker-assignee-select" class="mt-1 block w-full rounded-md border-slate-600 bg-slate-800 text-lightText shadow-sm focus:border-accent focus:ring-accent sm:text-sm p-2"></select>
-                            <p id="notification-sent-message" class="text-success text-sm mt-2 hidden text-center">Notifica inviata!</p>
-                        </div>
-                        <button type="submit" id="submit-btn" class="w-full bg-accent text-white font-semibold py-3 px-4 rounded-lg hover:bg-blue-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 animate-pulseBg">
-                            Genera Report Automatico
+                        <ul id="yesterday-list" class="mt-2 space-y-2"></ul>
+                    </div>
+                    <div>
+                        <label for="today" class="block text-sm font-medium text-mutedText">Obiettivi per domani</label>
+                        <textarea id="today" name="today" rows="3" class="input-field mt-1 w-full" placeholder="Es: Inizierò a lavorare sull'integrazione del sistema di pagamento..."></textarea>
+                    </div>
+                    <div>
+                        <label for="blockers" class="block text-sm font-medium text-mutedText">Ostacoli</label>
+                        <textarea id="blockers" name="blockers" rows="2" class="input-field mt-1 w-full" placeholder="Es: No / Sì, sto aspettando le nuove API dal team backend..."></textarea>
+                    </div>
+                    <div id="blocker-assignee-div" class="hidden mt-4 p-4 card animate-fadeIn">
+                        <label for="blocker-assignee-select" class="block text-sm font-medium text-mutedText">Assegna l'ostacolo a:</label>
+                        <select id="blocker-assignee-select" class="input-field mt-1 w-full"></select>
+                    </div>
+                    <button type="submit" id="submit-btn" class="w-full button-primary">
+                        Genera Report
+                    </button>
+                    <div id="new-report-btn-div" class="hidden">
+                        <button type="button" id="new-report-btn" class="w-full button-secondary">
+                            Nuovo Report
                         </button>
-                        <div id="new-report-btn-div">
-                            <button type="button" id="new-report-btn" class="w-full bg-slate-700 text-lightText font-semibold py-3 px-4 rounded-lg hover:bg-slate-600 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
-                                Nuovo Report
-                            </button>
-                        </div>
-                    </form>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Card: Generated Report -->
+            <div class="card p-6 col-span-1 md:col-span-2 lg:col-span-2">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold">📄 Report Generato</h3>
+                </div>
+                <div id="report-output" class="text-mutedText prose leading-relaxed">
+                    <p class="italic">Il report generato apparirà qui dopo aver inviato il modulo.</p>
                 </div>
             </div>
-            <div class="space-y-8">
-                <div class="p-6 rounded-xl shadow-lg border border-slate-700 card min-h-[300px]">
-                    <h2 class="text-2xl font-semibold mb-4 text-lightText">📄 Report del Giorno</h2>
-                    <div id="report-output" class="text-lightMuted prose leading-relaxed">
-                        <p class="italic">Il report generato apparirà qui dopo aver inviato il modulo.</p>
-                    </div>
-                </div>
-                <div class="p-6 rounded-xl shadow-lg border border-slate-700 card">
-                    <h2 class="text-2xl font-semibold mb-4 text-lightText">📊 Dashboard di Analisi</h2>
-                    <p class="text-lightMuted mb-6">Visualizza i trend del team nel tempo per identificare pattern e migliorare il flusso di lavoro.</p>
-                    <div class="chart-container">
-                        <canvas id="blockersChart"></canvas>
-                    </div>
-                </div>
-                <div id="past-reports-section" class="p-6 rounded-xl shadow-lg border border-slate-700 card">
-                    <h2 class="text-2xl font-semibold mb-4 text-lightText">📜 Feed del Team</h2>
-                    <ul id="past-reports" class="list-none space-y-4 p-0">
-                        <p class="italic text-lightMuted">I report del team appariranno qui automaticamente.</p>
+
+            <!-- Card: Team Activity Feed -->
+            <div class="card p-6 col-span-1 md:col-span-2">
+                <h3 class="text-xl font-semibold mb-4">📜 Feed del Team</h3>
+                <div class="space-y-4">
+                    <ul id="past-reports" class="list-none p-0">
+                        <p class="italic text-mutedText">I report del team appariranno qui automaticamente.</p>
                     </ul>
                 </div>
             </div>
-        </main>
+
+            <!-- Card: Blockers Chart -->
+            <div class="card p-6 col-span-1">
+                <h3 class="text-xl font-semibold mb-4">📊 Dashboard di Analisi</h3>
+                <p class="text-sm text-mutedText mb-4">Visualizza i trend del team nel tempo.</p>
+                <div class="chart-container">
+                    <canvas id="blockersChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Card: Team Management -->
+            <div id="team-members-section" class="card p-6 col-span-1">
+                <h3 class="text-xl font-semibold mb-4">👥 Gestione del Team</h3>
+                <form id="team-member-form" class="mb-4">
+                    <label class="block text-sm font-medium text-mutedText">Aggiungi un membro</label>
+                    <div class="flex mt-1 space-x-2">
+                        <input id="team-member-name-input" type="text" class="input-field flex-grow" placeholder="Nome">
+                        <input id="team-member-email-input" type="email" class="input-field flex-grow" placeholder="Email">
+                        <button type="submit" class="button-primary px-4 py-2 text-sm">Aggiungi</button>
+                    </div>
+                </form>
+                <h4 class="text-lg font-semibold text-lightText mt-6">Membri</h4>
+                <ul id="team-members-list" class="space-y-2 mt-4"></ul>
+            </div>
+        </div>
+        
     </div>
+
 </body>
+</html>
