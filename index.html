@@ -155,8 +155,27 @@
         import { getFirestore, doc, addDoc, onSnapshot, collection, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Variabili globali fornite dall'ambiente Canvas. NON modificarle.
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        // PER IL TESTING IN LOCALE, DEVI INSERIRE QUI LA TUA CONFIGURAZIONE DI FIREBASE.
+        // ESEMPIO:
+        // const firebaseConfigPlaceholder = {
+        //     apiKey: "YOUR_API_KEY",
+        //     authDomain: "YOUR_AUTH_DOMAIN",
+        //     projectId: "YOUR_PROJECT_ID",
+        //     storageBucket: "YOUR_STORAGE_BUCKET",
+        //     messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+        //     appId: "YOUR_APP_ID"
+        // };
+
+        const appId = 1:516502511573:web:869293b18ade900e50e75c;
+       const firebaseConfig = {
+  apiKey: "AIzaSyBAuhf1wpC-eoK2jgL1U9JYfCnuwVOD7Ls",
+  authDomain: "report-ai-automator.firebaseapp.com",
+  projectId: "report-ai-automator",
+  storageBucket: "report-ai-automator.firebasestorage.app",
+  messagingSenderId: "516502511573",
+  appId: "1:516502511573:web:869293b18ade900e50e75c",
+  measurementId: "G-Z04WGWJYKM"
+};;
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         // Inizializza Firebase e i servizi
@@ -197,7 +216,7 @@
                         }
                     });
                 } else {
-                    statusMessage.textContent = 'Errore: Configurazione Firebase non trovata.';
+                    statusMessage.textContent = 'Errore: Configurazione Firebase non trovata. Inserisci le tue credenziali per il testing locale.';
                     submitButton.disabled = true;
                 }
             } catch (error) {
