@@ -283,7 +283,6 @@
         <div class="header">
             <h1>Daily Stand-up Automator</h1>
             <p>Crea rapidamente il tuo aggiornamento quotidiano per il team e mantieni la tua giornata organizzata.</p>
-            <div id="userInfo" class="user-info"></div>
         </div>
 
         <div class="input-section">
@@ -344,7 +343,6 @@
     </div>
 
     <script type="module">
-
         // Elementi del DOM
         const yesterdayTasksTextarea = document.getElementById('yesterdayTasks');
         const todayTasksTextarea = document.getElementById('todayTasks');
@@ -359,10 +357,6 @@
         const messageTitle = document.getElementById('messageTitle');
         const messageText = document.getElementById('messageText');
         const messageBtn = document.getElementById('messageBtn');
-        const userInfoDiv = document.getElementById('userInfo');
-
-        let db, auth, userId;
-        let isAuthReady = false;
 
         /**
          * Mostra una finestra di messaggio personalizzata.
@@ -382,49 +376,11 @@
             messageBox.style.display = 'none';
         }
 
-            }
-
-            const reportData = {
-                yesterday: yesterdayTasksTextarea.value,
-                today: todayTasksTextarea.value,
-                blockers: blockersTextarea.value,
-                timestamp: new Date()
-            };
-
-            const userReportsCollection = collection(db, `artifacts/${appId}/users/${userId}/dailyReports`);
-            
-            try {
-                // Genera un ID documento unico per ogni report
-                const reportDocRef = doc(userReportsCollection);
-                await setDoc(reportDocRef, reportData);
-                showMessage("Salvato!", "Il tuo report è stato salvato con successo.");
-            } catch (e) {
-                console.error("Errore nel salvataggio del report: ", e);
-                showMessage("Errore di Salvataggio", "Si è verificato un errore nel salvataggio del report. Controlla la console per i dettagli.");
-            }
-        }
-
         /**
-         * Carica il report più recente per l'utente.
+         * Salva il report (simulato, dato che non c'è un database).
          */
-        async function loadLastReport() {
-            if (!isAuthReady) {
-                console.warn("Utente non autenticato, non posso caricare i dati.");
-                return;
-            }
-            try {
-                const q = query(collection(db, `artifacts/${appId}/users/${userId}/dailyReports`), orderBy("timestamp", "desc"), limit(1));
-                const querySnapshot = await getDocs(q);
-                if (!querySnapshot.empty) {
-                    const lastReport = querySnapshot.docs[0].data();
-                    yesterdayTasksTextarea.value = lastReport.yesterday || '';
-                    todayTasksTextarea.value = lastReport.today || '';
-                    blockersTextarea.value = lastReport.blockers || '';
-                }
-            } catch (e) {
-                console.error("Errore nel caricamento dell'ultimo report:", e);
-                // Non mostriamo un errore all'utente se non ci sono dati, è normale.
-            }
+        function saveReport() {
+            showMessage("Salvato!", "Il tuo report è stato preparato localmente.");
         }
 
         /**
@@ -443,7 +399,7 @@
             generateBtnText.classList.add('hidden');
             loadingSpinner.classList.remove('hidden');
 
-            const systemPrompt = `Sei un assistente di progetto e devi generare un report giornaliero sintetico e formale per un capogruppo. Il report deve essere conciso, professionale e chiaro. Strutturalo con i seguenti titoli: 'Riepilomo', 'Prossimi Passi', 'Impedimenti e Azioni'.`;
+            const systemPrompt = `Sei un assistente di progetto e devi generare un report giornaliero sintetico e formale per un capogruppo. Il report deve essere conciso, professionale e chiaro. Strutturalo con i seguenti titoli: 'Riepilogo', 'Prossimi Passi', 'Impedimenti e Azioni'.`;
             
             const userQuery = `Sulla base dei seguenti punti, crea un report giornaliero professionale.
             Compiti completati ieri: ${yesterday}
@@ -513,38 +469,16 @@
             }
         }
 
-                // Ascolta i cambiamenti di stato dell'autenticazione.
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        userInfoDiv.textContent = `Utente ID: ${userId}`;
-                        console.log("Autenticazione riuscita. UID:", userId);
-                        isAuthReady = true;
-                        await loadLastReport();
-                    } else {
-                        isAuthReady = false;
-                        console.log("Utente non autenticato. Avvio autenticazione.");
-                        try {
-                            if (initialAuthToken) {
-                                await signInWithCustomToken(auth, initialAuthToken);
-                            } else {
-                                await signInAnonymously(auth);
-                            }
-                        } catch (error) {
-                            console.error("Errore di autenticazione:", error);
-                            showMessage("Errore di Autenticazione", "Impossibile autenticare l'utente. Riprova più tardi.");
-                        }
-                    }
-                });
-
+        // Inizializza l'applicazione e aggiungi i listener degli eventi
+        function initApp() {
+            generateBtn.addEventListener('click', generateAIReport);
+            copyBtn.addEventListener('click', copyReport);
+            saveBtn.addEventListener('click', saveReport);
+            messageBtn.addEventListener('click', hideMessage);
         }
-
-        // Aggiungi i listener degli eventi
-        generateBtn.addEventListener('click', generateAIReport);
-        copyBtn.addEventListener('click', copyReport);
-        saveBtn.addEventListener('click', saveReport);
-        messageBtn.addEventListener('click', hideMessage);
 
         // Avvia l'applicazione al caricamento della finestra
         window.onload = initApp;
     </script>
+</body>
+</html>
