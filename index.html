@@ -21,23 +21,21 @@
         }
 
         .container {
-            max-width: 1100px;
+            max-width: 1200px;
             width: 100%;
             background-color: #FFFFFF;
-            padding: 3rem;
+            padding: 3.5rem 4rem;
             border-radius: 2rem;
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 3rem;
         }
 
-        @media (min-width: 1024px) {
+        @media (max-width: 1024px) {
             .container {
-                display: grid;
-                grid-template-columns: 1.5fr 1fr;
-                gap: 3rem;
-                padding: 3.5rem 4rem;
+                grid-template-columns: 1fr;
+                padding: 2rem;
             }
         }
 
@@ -47,7 +45,7 @@
         }
 
         .header h1 {
-            font-size: 3rem;
+            font-size: 2.5rem;
             font-weight: 700;
             color: #1E293B;
             margin-bottom: 0.5rem;
@@ -57,6 +55,15 @@
         .header p {
             font-size: 1.125rem;
             color: #64748B;
+        }
+
+        .user-info {
+            grid-column: 1 / -1;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #94A3B8;
+            margin-top: -1rem;
+            margin-bottom: 1rem;
         }
 
         .input-section {
@@ -134,6 +141,10 @@
             cursor: pointer;
             width: 100%;
             text-align: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .btn-primary {
@@ -147,7 +158,19 @@
             transform: translateY(-2px);
             box-shadow: 0 6px 16px rgba(76, 81, 191, 0.25);
         }
-        
+
+        .btn-secondary {
+            background-color: #F1F5F9;
+            color: #4C51BF;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-secondary:hover {
+            background-color: #E2E8F0;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+        }
+
         .output-section {
             display: flex;
             flex-direction: column;
@@ -176,7 +199,7 @@
             flex-grow: 1;
             border: 1px solid #E2E8F0;
         }
-        
+
         .copy-btn {
             background-color: #10B981;
             color: white;
@@ -233,6 +256,20 @@
         .message-box button:hover {
             background-color: #3C3E9B;
         }
+        
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
 
         @keyframes fadeIn {
             from { opacity: 0; transform: translate(-50%, -60%); }
@@ -246,6 +283,7 @@
         <div class="header">
             <h1>Daily Stand-up Automator</h1>
             <p>Crea rapidamente il tuo aggiornamento quotidiano per il team e mantieni la tua giornata organizzata.</p>
+            <div id="userInfo" class="user-info"></div>
         </div>
 
         <div class="input-section">
@@ -269,21 +307,33 @@
                 <div class="form-group">
                     <label for="blockers" class="label-container">
                         <i class="ph-fill ph-warning"></i>
-                        <span>Ci sono blocchi o impedimenti?</span>
+                        <span>Blocchi e impedimenti?</span>
                     </label>
-                    <textarea id="blockers" placeholder="Nessun blocco."></textarea>
+                    <textarea id="blockers" placeholder="Ho incontrato difficoltà con l'integrazione delle API. La questione deve essere delegata a [Nome Membro]." rows="3"></textarea>
                 </div>
 
                 <div class="button-group">
-                    <button id="generateBtn" class="btn btn-primary">Genera Messaggio</button>
+                    <button id="saveBtn" class="btn btn-secondary">
+                        <i class="ph ph-floppy-disk"></i>
+                        Salva Report
+                    </button>
+                    <button id="generateBtn" class="btn btn-primary">
+                        <span id="generateBtnText"><i class="ph-fill ph-robot"></i>Genera Report AI</span>
+                        <div id="loadingSpinner" class="hidden loading-spinner"></div>
+                    </button>
                 </div>
             </div>
         </div>
 
         <div class="output-section">
-            <div class="output-title">Messaggio Generato</div>
-            <div id="output">Nessun messaggio generato ancora.</div>
-            <button id="copyBtn" class="btn copy-btn">Copia Messaggio</button>
+            <div class="output-title">Report Giornaliero</div>
+            <div id="output">
+                Il tuo report generato dall'AI apparirà qui. Clicca su "Genera Report AI" per iniziare.
+            </div>
+            <button id="copyBtn" class="btn copy-btn">
+                <i class="ph ph-copy-simple"></i>
+                Copia Report
+            </button>
         </div>
     </div>
 
@@ -293,18 +343,33 @@
         <button id="messageBtn">OK</button>
     </div>
 
-    <script type="text/javascript">
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, query, getDocs, limit, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Variabili globali per l'ambiente di Firebase
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
         // Elementi del DOM
         const yesterdayTasksTextarea = document.getElementById('yesterdayTasks');
         const todayTasksTextarea = document.getElementById('todayTasks');
         const blockersTextarea = document.getElementById('blockers');
         const generateBtn = document.getElementById('generateBtn');
+        const generateBtnText = document.getElementById('generateBtnText');
+        const loadingSpinner = document.getElementById('loadingSpinner');
         const copyBtn = document.getElementById('copyBtn');
+        const saveBtn = document.getElementById('saveBtn');
         const outputDiv = document.getElementById('output');
         const messageBox = document.getElementById('messageBox');
         const messageTitle = document.getElementById('messageTitle');
         const messageText = document.getElementById('messageText');
         const messageBtn = document.getElementById('messageBtn');
+        const userInfoDiv = document.getElementById('userInfo');
+
+        let db, auth, userId;
 
         /**
          * Mostra una finestra di messaggio personalizzata.
@@ -325,70 +390,127 @@
         }
 
         /**
-         * Salva lo stato delle textarea nel localStorage.
+         * Salva il report giornaliero nel database Firestore.
          */
-        function saveState() {
-            const data = {
+        async function saveReport() {
+            if (!userId) {
+                showMessage("Errore", "Impossibile salvare il report: utente non autenticato.");
+                return;
+            }
+
+            const reportData = {
                 yesterday: yesterdayTasksTextarea.value,
                 today: todayTasksTextarea.value,
-                blockers: blockersTextarea.value
+                blockers: blockersTextarea.value,
+                timestamp: new Date()
             };
-            try {
-                localStorage.setItem('standupData', JSON.stringify(data));
-            } catch (error) {
-                console.error("Errore nel salvataggio dello stato:", error);
-            }
-        }
 
-        /**
-         * Carica lo stato delle textarea dal localStorage.
-         */
-        function loadState() {
-            try {
-                const data = JSON.parse(localStorage.getItem('standupData'));
-                if (data) {
-                    yesterdayTasksTextarea.value = data.yesterday || '';
-                    todayTasksTextarea.value = data.today || '';
-                    blockersTextarea.value = data.blockers || '';
-                    generateMessage(false); // Rigenera il messaggio all'avvio senza salvare di nuovo
-                }
-            } catch (error) {
-                console.error("Errore nel caricamento dello stato:", error);
-            }
-        }
-
-        /**
-         * Genera il messaggio di stand-up formattato e aggiorna l'output.
-         * @param {boolean} shouldSave - Indica se salvare lo stato dopo la generazione.
-         */
-        function generateMessage(shouldSave = true) {
-            const yesterday = yesterdayTasksTextarea.value.trim() || "Nessun aggiornamento.";
-            const today = todayTasksTextarea.value.trim() || "Nessun aggiornamento.";
-            const blockers = blockersTextarea.value.trim() || "Nessun blocco.";
+            const userReportsCollection = collection(db, `artifacts/${appId}/users/${userId}/dailyReports`);
             
-            const message = `
-**Ieri:**
-${yesterday}
-
-**Oggi:**
-${today}
-
-**Blocchi:**
-${blockers}
-            `.trim();
-            outputDiv.textContent = message;
-            if (shouldSave) {
-                saveState();
+            try {
+                // Genera un ID documento unico per ogni report
+                const reportDocRef = doc(userReportsCollection);
+                await setDoc(reportDocRef, reportData);
+                showMessage("Salvato!", "Il tuo report è stato salvato con successo.");
+            } catch (e) {
+                console.error("Errore nel salvataggio del report: ", e);
+                showMessage("Errore di Salvataggio", "Si è verificato un errore nel salvataggio del report. Controlla la console per i dettagli.");
             }
         }
 
         /**
-         * Copia il messaggio generato negli appunti.
+         * Carica il report più recente per l'utente.
          */
-        function copyMessage() {
+        async function loadLastReport() {
+            if (!userId) {
+                console.warn("Utente non autenticato, non posso caricare i dati.");
+                return;
+            }
+            try {
+                const q = query(collection(db, `artifacts/${appId}/users/${userId}/dailyReports`), orderBy("timestamp", "desc"), limit(1));
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    const lastReport = querySnapshot.docs[0].data();
+                    yesterdayTasksTextarea.value = lastReport.yesterday || '';
+                    todayTasksTextarea.value = lastReport.today || '';
+                    blockersTextarea.value = lastReport.blockers || '';
+                }
+            } catch (e) {
+                console.error("Errore nel caricamento dell'ultimo report:", e);
+                // Non mostriamo un errore all'utente se non ci sono dati, è normale.
+            }
+        }
+
+        /**
+         * Genera un report professionale utilizzando il modello AI di Gemini.
+         */
+        async function generateAIReport() {
+            const yesterday = yesterdayTasksTextarea.value.trim();
+            const today = todayTasksTextarea.value.trim();
+            const blockers = blockersTextarea.value.trim();
+
+            if (!yesterday && !today && !blockers) {
+                showMessage("Attenzione", "Inserisci almeno un'attività per generare un report.");
+                return;
+            }
+
+            generateBtnText.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+
+            const systemPrompt = `Sei un assistente di progetto e devi generare un report giornaliero sintetico e formale per un capogruppo. Il report deve essere conciso, professionale e chiaro. Strutturalo con i seguenti titoli: 'Riepilogo', 'Prossimi Passi', 'Impedimenti e Azioni'.`;
+            
+            const userQuery = `Sulla base dei seguenti punti, crea un report giornaliero professionale.
+            Compiti completati ieri: ${yesterday}
+            Compiti da completare oggi: ${today}
+            Impedimenti: ${blockers}
+            Il report deve avere un tono professionale e le sezioni devono essere facilmente identificabili.`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Errore API: ${response.status} - ${errorData.message}`);
+                }
+
+                const result = await response.json();
+                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (text) {
+                    outputDiv.textContent = text;
+                    showMessage("Report Generato", "Il report AI è pronto. Puoi copiarlo e inviarlo.");
+                } else {
+                    throw new Error("Risposta AI non valida o vuota.");
+                }
+
+            } catch (error) {
+                console.error("Errore nella generazione del report:", error);
+                showMessage("Errore di Generazione", "Si è verificato un errore durante la creazione del report. Riprova più tardi.");
+            } finally {
+                loadingSpinner.classList.add('hidden');
+                generateBtnText.classList.remove('hidden');
+            }
+        }
+
+        /**
+         * Copia il contenuto del report negli appunti.
+         */
+        function copyReport() {
             const message = outputDiv.textContent;
-            if (message === "Nessun messaggio generato ancora.") {
-                showMessage("Nessun messaggio da copiare", "Genera un messaggio prima di provare a copiarlo.");
+            if (message === "Il tuo report generato dall'AI apparirà qui. Clicca su \"Genera Report AI\" per iniziare.") {
+                showMessage("Attenzione", "Nessun report da copiare. Generane uno per primo.");
                 return;
             }
             try {
@@ -398,23 +520,61 @@ ${blockers}
                 tempTextarea.select();
                 document.execCommand('copy');
                 document.body.removeChild(tempTextarea);
-                showMessage("Copiato!", "Il messaggio è stato copiato negli appunti.");
+                showMessage("Copiato!", "Il report è stato copiato negli appunti.");
             } catch (err) {
                 console.error('Errore nella copia del testo:', err);
                 showMessage("Errore", "Impossibile copiare il testo. Prova a selezionarlo manualmente.");
             }
         }
 
-        // Event Listeners
-        yesterdayTasksTextarea.addEventListener('input', () => generateMessage());
-        todayTasksTextarea.addEventListener('input', () => generateMessage());
-        blockersTextarea.addEventListener('input', () => generateMessage());
-        generateBtn.addEventListener('click', () => generateMessage());
-        copyBtn.addEventListener('click', copyMessage);
+        // Inizializza l'app Firebase e l'autenticazione
+        function initApp() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        userInfoDiv.textContent = `Utente ID: ${userId}`;
+                        console.log("Autenticazione riuscita. UID:", userId);
+                        // Aggiungo un piccolo ritardo per assicurarmi che il token sia completamente propagato
+                        setTimeout(async () => {
+                            await loadLastReport();
+                        }, 500);
+                    } else {
+                        // Utente non autenticato, avvia il processo di autenticazione anonima o con token
+                        console.log("Utente non autenticato. Avvio autenticazione.");
+                        try {
+                            if (initialAuthToken) {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                                console.log("Autenticazione con token personalizzato in corso.");
+                            } else {
+                                await signInAnonymously(auth);
+                                console.log("Autenticazione anonima in corso.");
+                            }
+                        } catch (error) {
+                            console.error("Errore di autenticazione:", error);
+                            showMessage("Errore di Autenticazione", "Impossibile autenticare l'utente. Riprova più tardi.");
+                        }
+                    }
+                });
+
+            } catch (error) {
+                console.error("Errore nell'inizializzazione di Firebase:", error);
+                showMessage("Errore", "Impossibile inizializzare l'applicazione. Controlla le configurazioni.");
+            }
+        }
+
+        // Aggiungi i listener degli eventi
+        generateBtn.addEventListener('click', generateAIReport);
+        copyBtn.addEventListener('click', copyReport);
+        saveBtn.addEventListener('click', saveReport);
         messageBtn.addEventListener('click', hideMessage);
 
-        // Carica lo stato iniziale all'apertura della pagina
-        window.onload = loadState;
+        // Avvia l'applicazione al caricamento della finestra
+        window.onload = initApp;
     </script>
 </body>
 </html>
