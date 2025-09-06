@@ -344,13 +344,6 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, query, getDocs, limit, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Variabili globali per l'ambiente di Firebase
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         // Elementi del DOM
         const yesterdayTasksTextarea = document.getElementById('yesterdayTasks');
@@ -389,13 +382,6 @@
             messageBox.style.display = 'none';
         }
 
-        /**
-         * Salva il report giornaliero nel database Firestore.
-         */
-        async function saveReport() {
-            if (!isAuthReady) {
-                showMessage("Errore", "Impossibile salvare il report: autenticazione in corso. Riprova tra un attimo.");
-                return;
             }
 
             const reportData = {
@@ -527,23 +513,6 @@
             }
         }
 
-        // Inizializza l'app Firebase e l'autenticazione
-        function initApp() {
-            let firebaseConfig;
-            try {
-                // Tenta di analizzare la configurazione, gestendo eventuali errori
-                firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-
-                // Controlla che la configurazione non sia un oggetto vuoto
-                if (Object.keys(firebaseConfig).length === 0) {
-                    throw new Error("La configurazione di Firebase è vuota.");
-                }
-
-                // Inizializza l'app Firebase con la configurazione
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-
                 // Ascolta i cambiamenti di stato dell'autenticazione.
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
@@ -568,10 +537,6 @@
                     }
                 });
 
-            } catch (error) {
-                console.error("Errore nell'inizializzazione di Firebase:", error);
-                showMessage("Errore", "Impossibile inizializzare l'applicazione. Controlla le configurazioni.");
-            }
         }
 
         // Aggiungi i listener degli eventi
