@@ -370,6 +370,7 @@
         const userInfoDiv = document.getElementById('userInfo');
 
         let db, auth, userId;
+        let isAuthReady = false;
 
         /**
          * Mostra una finestra di messaggio personalizzata.
@@ -393,8 +394,8 @@
          * Salva il report giornaliero nel database Firestore.
          */
         async function saveReport() {
-            if (!userId) {
-                showMessage("Errore", "Impossibile salvare il report: utente non autenticato.");
+            if (!isAuthReady) {
+                showMessage("Errore", "Impossibile salvare il report: autenticazione in corso. Riprova tra un attimo.");
                 return;
             }
 
@@ -422,7 +423,7 @@
          * Carica il report più recente per l'utente.
          */
         async function loadLastReport() {
-            if (!userId) {
+            if (!isAuthReady) {
                 console.warn("Utente non autenticato, non posso caricare i dati.");
                 return;
             }
@@ -534,25 +535,24 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
 
+                // Ascolta i cambiamenti di stato dell'autenticazione.
+                // Questa è la soluzione robusta per attendere che l'utente sia autenticato
+                // prima di eseguire qualsiasi operazione sul database.
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
                         userInfoDiv.textContent = `Utente ID: ${userId}`;
                         console.log("Autenticazione riuscita. UID:", userId);
-                        // Aggiungo un piccolo ritardo per assicurarmi che il token sia completamente propagato
-                        setTimeout(async () => {
-                            await loadLastReport();
-                        }, 500);
+                        isAuthReady = true;
+                        await loadLastReport();
                     } else {
-                        // Utente non autenticato, avvia il processo di autenticazione anonima o con token
+                        isAuthReady = false;
                         console.log("Utente non autenticato. Avvio autenticazione.");
                         try {
                             if (initialAuthToken) {
                                 await signInWithCustomToken(auth, initialAuthToken);
-                                console.log("Autenticazione con token personalizzato in corso.");
                             } else {
                                 await signInAnonymously(auth);
-                                console.log("Autenticazione anonima in corso.");
                             }
                         } catch (error) {
                             console.error("Errore di autenticazione:", error);
@@ -577,4 +577,3 @@
         window.onload = initApp;
     </script>
 </body>
-</html>
