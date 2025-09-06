@@ -350,7 +350,6 @@
 
         // Variabili globali per l'ambiente di Firebase
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         // Elementi del DOM
@@ -458,7 +457,7 @@
             generateBtnText.classList.add('hidden');
             loadingSpinner.classList.remove('hidden');
 
-            const systemPrompt = `Sei un assistente di progetto e devi generare un report giornaliero sintetico e formale per un capogruppo. Il report deve essere conciso, professionale e chiaro. Strutturalo con i seguenti titoli: 'Riepilogo', 'Prossimi Passi', 'Impedimenti e Azioni'.`;
+            const systemPrompt = `Sei un assistente di progetto e devi generare un report giornaliero sintetico e formale per un capogruppo. Il report deve essere conciso, professionale e chiaro. Strutturalo con i seguenti titoli: 'Riepilomo', 'Prossimi Passi', 'Impedimenti e Azioni'.`;
             
             const userQuery = `Sulla base dei seguenti punti, crea un report giornaliero professionale.
             Compiti completati ieri: ${yesterday}
@@ -530,14 +529,22 @@
 
         // Inizializza l'app Firebase e l'autenticazione
         function initApp() {
+            let firebaseConfig;
             try {
+                // Tenta di analizzare la configurazione, gestendo eventuali errori
+                firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+                // Controlla che la configurazione non sia un oggetto vuoto
+                if (Object.keys(firebaseConfig).length === 0) {
+                    throw new Error("La configurazione di Firebase è vuota.");
+                }
+
+                // Inizializza l'app Firebase con la configurazione
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
 
                 // Ascolta i cambiamenti di stato dell'autenticazione.
-                // Questa è la soluzione robusta per attendere che l'utente sia autenticato
-                // prima di eseguire qualsiasi operazione sul database.
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
@@ -576,4 +583,3 @@
         // Avvia l'applicazione al caricamento della finestra
         window.onload = initApp;
     </script>
-</body>
