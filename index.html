@@ -198,20 +198,70 @@
             color: #475569;
             flex-grow: 1;
             border: 1px solid #E2E8F0;
+            min-height: 200px;
+        }
+        
+        .share-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        .share-section h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #475569;
+        }
+        
+        .share-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-direction: column;
         }
 
-        .copy-btn {
+        @media (min-width: 768px) {
+            .share-buttons {
+                flex-direction: row;
+            }
+        }
+        
+        .btn-whatsapp {
+            background-color: #25D366;
+            color: white;
+            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.2);
+        }
+        
+        .btn-whatsapp:hover {
+            background-color: #1da851;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(37, 211, 102, 0.25);
+        }
+        
+        .btn-email {
+            background-color: #E8493F;
+            color: white;
+            box-shadow: 0 4px 12px rgba(232, 73, 63, 0.2);
+        }
+        
+        .btn-email:hover {
+            background-color: #b73a30;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(232, 73, 63, 0.25);
+        }
+        
+        .btn-copy {
             background-color: #10B981;
             color: white;
             box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
-            margin-top: 1.5rem;
         }
 
-        .copy-btn:hover {
+        .btn-copy:hover {
             background-color: #059669;
             transform: translateY(-2px);
             box-shadow: 0 6px 16px rgba(16, 185, 129, 0.25);
         }
+
 
         .message-box {
             position: fixed;
@@ -329,10 +379,24 @@
             <div id="output">
                 Il tuo report generato dall'AI apparirà qui. Clicca su "Genera Report AI" per iniziare.
             </div>
-            <button id="copyBtn" class="btn copy-btn">
-                <i class="ph ph-copy-simple"></i>
-                Copia Report
-            </button>
+            
+            <div class="share-section">
+                <h3>Condividi Report</h3>
+                <div class="share-buttons">
+                    <button id="copyBtn" class="btn btn-copy">
+                        <i class="ph ph-copy-simple"></i>
+                        Copia Report
+                    </button>
+                    <button id="whatsappBtn" class="btn btn-whatsapp">
+                        <i class="ph-fill ph-whatsapp-logo"></i>
+                        Invia su WhatsApp
+                    </button>
+                    <button id="emailBtn" class="btn btn-email">
+                        <i class="ph-fill ph-envelope-simple"></i>
+                        Invia via Email
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -342,7 +406,7 @@
         <button id="messageBtn">OK</button>
     </div>
 
-    <script type="module">
+    <script type="text/javascript">
         // Elementi del DOM
         const yesterdayTasksTextarea = document.getElementById('yesterdayTasks');
         const todayTasksTextarea = document.getElementById('todayTasks');
@@ -351,12 +415,17 @@
         const generateBtnText = document.getElementById('generateBtnText');
         const loadingSpinner = document.getElementById('loadingSpinner');
         const copyBtn = document.getElementById('copyBtn');
+        const whatsappBtn = document.getElementById('whatsappBtn');
+        const emailBtn = document.getElementById('emailBtn');
         const saveBtn = document.getElementById('saveBtn');
         const outputDiv = document.getElementById('output');
         const messageBox = document.getElementById('messageBox');
         const messageTitle = document.getElementById('messageTitle');
         const messageText = document.getElementById('messageText');
         const messageBtn = document.getElementById('messageBtn');
+
+        // Chiave per salvare i dati in localStorage
+        const LOCAL_STORAGE_KEY = 'daily-standup-report-data';
 
         /**
          * Mostra una finestra di messaggio personalizzata.
@@ -377,10 +446,45 @@
         }
 
         /**
-         * Salva il report (simulato, dato che non c'è un database).
+         * Salva il report nella memoria locale del browser (localStorage).
          */
-        function saveReport() {
-            showMessage("Salvato!", "Il tuo report è stato preparato localmente.");
+        function saveReportToStorage() {
+            const reportData = {
+                yesterday: yesterdayTasksTextarea.value.trim(),
+                today: todayTasksTextarea.value.trim(),
+                blockers: blockersTextarea.value.trim()
+            };
+
+            if (!reportData.yesterday && !reportData.today && !reportData.blockers) {
+                showMessage("Attenzione", "Per salvare, inserisci almeno un'attività.");
+                return;
+            }
+
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(reportData));
+                showMessage("Salvato!", "Il tuo report è stato salvato con successo localmente.");
+            } catch (error) {
+                console.error("Errore nel salvataggio del report in localStorage:", error);
+                showMessage("Errore", "Si è verificato un errore nel salvataggio locale. Controlla la console.");
+            }
+        }
+
+        /**
+         * Carica il report dalla memoria locale del browser (localStorage).
+         */
+        function loadReportFromStorage() {
+            try {
+                const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+                if (storedData) {
+                    const reportData = JSON.parse(storedData);
+                    yesterdayTasksTextarea.value = reportData.yesterday || '';
+                    todayTasksTextarea.value = reportData.today || '';
+                    blockersTextarea.value = reportData.blockers || '';
+                }
+            } catch (error) {
+                console.error("Errore nel caricamento del report da localStorage:", error);
+                // Non mostriamo un messaggio all'utente per evitare distrazioni se non ci sono dati.
+            }
         }
 
         /**
@@ -399,7 +503,7 @@
             generateBtnText.classList.add('hidden');
             loadingSpinner.classList.remove('hidden');
 
-            const systemPrompt = `Sei un assistente di progetto e devi generare un report giornaliero sintetico e formale per un capogruppo. Il report deve essere conciso, professionale e chiaro. Strutturalo con i seguenti titoli: 'Riepilogo', 'Prossimi Passi', 'Impedimenti e Azioni'.`;
+            const systemPrompt = `Sei un assistente di progetto e devi generare un report giornaliero sintetico e formale per un capogruppo. Il report deve essere conciso, professionale e chiaro. Strutturalo con i seguenti titoli: 'Riepilogoo', 'Prossimi Passi', 'Impedimenti e Azioni'.`;
             
             const userQuery = `Sulla base dei seguenti punti, crea un report giornaliero professionale.
             Compiti completati ieri: ${yesterday}
@@ -469,11 +573,46 @@
             }
         }
 
-        // Inizializza l'applicazione e aggiungi i listener degli eventi
+        /**
+         * Invia il report tramite WhatsApp.
+         */
+        function shareViaWhatsApp() {
+            const report = outputDiv.textContent;
+            if (report.trim() === "Il tuo report generato dall'AI apparirà qui. Clicca su \"Genera Report AI\" per iniziare.") {
+                 showMessage("Attenzione", "Nessun report da inviare. Generane uno per primo.");
+                 return;
+            }
+            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(report)}`;
+            window.open(whatsappUrl, '_blank');
+        }
+
+        /**
+         * Invia il report tramite Email.
+         */
+        function shareViaEmail() {
+            const report = outputDiv.textContent;
+            if (report.trim() === "Il tuo report generato dall'AI apparirà qui. Clicca su \"Genera Report AI\" per iniziare.") {
+                showMessage("Attenzione", "Nessun report da inviare. Generane uno per primo.");
+                return;
+            }
+            const subject = "Report Giornaliero Stand-up";
+            const emailUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(report)}`;
+            window.open(emailUrl, '_blank');
+        }
+
+        /**
+         * Inizializza l'applicazione e i listener.
+         */
         function initApp() {
+            // Carica i dati salvati
+            loadReportFromStorage();
+
+            // Aggiungi i listener degli eventi
             generateBtn.addEventListener('click', generateAIReport);
+            saveBtn.addEventListener('click', saveReportToStorage);
             copyBtn.addEventListener('click', copyReport);
-            saveBtn.addEventListener('click', saveReport);
+            whatsappBtn.addEventListener('click', shareViaWhatsApp);
+            emailBtn.addEventListener('click', shareViaEmail);
             messageBtn.addEventListener('click', hideMessage);
         }
 
