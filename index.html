@@ -377,7 +377,7 @@
         <div class="output-section">
             <div class="output-title">Report Giornaliero</div>
             <div id="output">
-                Il tuo report generato dall'AI apparirà qui. Clicca su "Genera Report AI" per iniziare.
+                Il tuo report generato apparirà qui. Clicca su "Genera Report AI" per iniziare.
             </div>
             
             <div class="share-section">
@@ -488,9 +488,9 @@
         }
 
         /**
-         * Genera un report professionale utilizzando il modello AI di Gemini.
+         * Genera un report professionale formattando i dati localmente.
          */
-        async function generateAIReport() {
+        function generateAIReport() {
             const yesterday = yesterdayTasksTextarea.value.trim();
             const today = todayTasksTextarea.value.trim();
             const blockers = blockersTextarea.value.trim();
@@ -500,54 +500,18 @@
                 return;
             }
 
-            generateBtnText.classList.add('hidden');
-            loadingSpinner.classList.remove('hidden');
+            let report = "";
+            report += "Riepilogo:\n";
+            report += `- Completato ieri: ${yesterday || "Nessun dato inserito."}\n\n`;
 
-            const systemPrompt = `Sei un assistente di progetto e devi generare un report giornaliero sintetico e formale per un capogruppo. Il report deve essere conciso, professionale e chiaro. Strutturalo con i seguenti titoli: 'Riepilogoo', 'Prossimi Passi', 'Impedimenti e Azioni'.`;
-            
-            const userQuery = `Sulla base dei seguenti punti, crea un report giornaliero professionale.
-            Compiti completati ieri: ${yesterday}
-            Compiti da completare oggi: ${today}
-            Impedimenti: ${blockers}
-            Il report deve avere un tono professionale e le sezioni devono essere facilmente identificabili.`;
+            report += "Prossimi Passi:\n";
+            report += `- Piani per oggi: ${today || "Nessun dato inserito."}\n\n`;
 
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-            };
+            report += "Impedimenti e Azioni:\n";
+            report += `- Bloccato da: ${blockers || "Nessun impedimento."}`;
 
-            const apiKey = "";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(`Errore API: ${response.status} - ${errorData.message}`);
-                }
-
-                const result = await response.json();
-                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-                if (text) {
-                    outputDiv.textContent = text;
-                    showMessage("Report Generato", "Il report AI è pronto. Puoi copiarlo e inviarlo.");
-                } else {
-                    throw new Error("Risposta AI non valida o vuota.");
-                }
-
-            } catch (error) {
-                console.error("Errore nella generazione del report:", error);
-                showMessage("Errore di Generazione", "Si è verificato un errore durante la creazione del report. Riprova più tardi.");
-            } finally {
-                loadingSpinner.classList.add('hidden');
-                generateBtnText.classList.remove('hidden');
-            }
+            outputDiv.textContent = report;
+            showMessage("Report Generato", "Il tuo report è pronto. Ora puoi copiarlo o condividerlo.");
         }
 
         /**
@@ -555,7 +519,7 @@
          */
         function copyReport() {
             const message = outputDiv.textContent;
-            if (message === "Il tuo report generato dall'AI apparirà qui. Clicca su \"Genera Report AI\" per iniziare.") {
+            if (message === "Il tuo report generato apparirà qui. Clicca su \"Genera Report AI\" per iniziare.") {
                 showMessage("Attenzione", "Nessun report da copiare. Generane uno per primo.");
                 return;
             }
@@ -578,7 +542,7 @@
          */
         function shareViaWhatsApp() {
             const report = outputDiv.textContent;
-            if (report.trim() === "Il tuo report generato dall'AI apparirà qui. Clicca su \"Genera Report AI\" per iniziare.") {
+            if (report.trim() === "Il tuo report generato apparirà qui. Clicca su \"Genera Report AI\" per iniziare.") {
                  showMessage("Attenzione", "Nessun report da inviare. Generane uno per primo.");
                  return;
             }
@@ -591,7 +555,7 @@
          */
         function shareViaEmail() {
             const report = outputDiv.textContent;
-            if (report.trim() === "Il tuo report generato dall'AI apparirà qui. Clicca su \"Genera Report AI\" per iniziare.") {
+            if (report.trim() === "Il tuo report generato apparirà qui. Clicca su \"Genera Report AI\" per iniziare.") {
                 showMessage("Attenzione", "Nessun report da inviare. Generane uno per primo.");
                 return;
             }
